@@ -59,6 +59,26 @@ export interface Block {
   timestamp: number;
 }
 
+export interface BlobInfo {
+  index: string;
+  size: number;
+  compressed_size: number;
+  compression_ratio: number;
+  zero_bytes: number;
+  non_zero_bytes: number;
+  zero_percentage: number;
+}
+
+export interface BlockBlobs {
+  slot: number;
+  count: number;
+  blobs: BlobInfo[];
+  total_size: number;
+  total_compressed_size: number;
+  avg_compression_ratio: number;
+  error?: string;
+}
+
 /**
  * Fetch a single block by slot number or 'head'
  */
@@ -132,6 +152,201 @@ export const fetchLatestBlock = async (): Promise<Block> => {
     if (axios.isAxiosError(error) && !error.response) {
       console.warn('Network error detected. Using mock data as fallback.');
       return MOCK_BLOCK;
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Fetch blob sidecars for a specific block
+ */
+export const fetchBlockBlobs = async (blockId: string | number): Promise<BlockBlobs> => {
+  if (shouldUseMockData()) {
+    console.log('Using mock data for fetchBlockBlobs');
+    return Promise.resolve({
+      slot: typeof blockId === 'number' ? blockId : 12345,
+      count: 2,
+      blobs: [
+        {
+          index: '0',
+          size: 131072,
+          compressed_size: 65536,
+          compression_ratio: 0.5,
+          zero_bytes: 98304,
+          non_zero_bytes: 32768,
+          zero_percentage: 75
+        },
+        {
+          index: '1',
+          size: 131072,
+          compressed_size: 78643,
+          compression_ratio: 0.6,
+          zero_bytes: 85196,
+          non_zero_bytes: 45876,
+          zero_percentage: 65
+        }
+      ],
+      total_size: 262144,
+      total_compressed_size: 144179,
+      avg_compression_ratio: 0.55
+    });
+  }
+
+  try {
+    const response = await axios.get(`${API_BASE_URL}/blob/${blockId}`, {
+      timeout: 5000 // 5 second timeout
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching blob sidecars:', error);
+    
+    if (axios.isAxiosError(error) && !error.response) {
+      console.warn('Network error detected. Using mock data as fallback.');
+      return {
+        slot: typeof blockId === 'number' ? blockId : 12345,
+        count: 2,
+        blobs: [
+          {
+            index: '0',
+            size: 131072,
+            compressed_size: 65536,
+            compression_ratio: 0.5,
+            zero_bytes: 98304,
+            non_zero_bytes: 32768,
+            zero_percentage: 75
+          },
+          {
+            index: '1',
+            size: 131072,
+            compressed_size: 78643,
+            compression_ratio: 0.6,
+            zero_bytes: 85196,
+            non_zero_bytes: 45876,
+            zero_percentage: 65
+          }
+        ],
+        total_size: 262144,
+        total_compressed_size: 144179,
+        avg_compression_ratio: 0.55
+      };
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * Fetch blob sidecars for multiple blocks in a slot range
+ */
+export const fetchBlobsRange = async (startSlot: number, endSlot: number): Promise<BlockBlobs[]> => {
+  if (shouldUseMockData()) {
+    console.log('Using mock data for fetchBlobsRange');
+    return Promise.resolve([
+      {
+        slot: startSlot,
+        count: 2,
+        blobs: [
+          {
+            index: '0',
+            size: 131072,
+            compressed_size: 65536,
+            compression_ratio: 0.5,
+            zero_bytes: 98304,
+            non_zero_bytes: 32768,
+            zero_percentage: 75
+          },
+          {
+            index: '1',
+            size: 131072,
+            compressed_size: 78643,
+            compression_ratio: 0.6,
+            zero_bytes: 85196,
+            non_zero_bytes: 45876,
+            zero_percentage: 65
+          }
+        ],
+        total_size: 262144,
+        total_compressed_size: 144179,
+        avg_compression_ratio: 0.55
+      },
+      {
+        slot: startSlot + 1,
+        count: 1,
+        blobs: [
+          {
+            index: '0',
+            size: 131072,
+            compressed_size: 65536,
+            compression_ratio: 0.5,
+            zero_bytes: 104858,
+            non_zero_bytes: 26214,
+            zero_percentage: 80
+          }
+        ],
+        total_size: 131072,
+        total_compressed_size: 65536,
+        avg_compression_ratio: 0.5
+      },
+      {
+        slot: endSlot,
+        count: 0,
+        blobs: [],
+        total_size: 0,
+        total_compressed_size: 0,
+        avg_compression_ratio: 0
+      }
+    ]);
+  }
+
+  try {
+    const response = await axios.get(`${API_BASE_URL}/blobs`, {
+      params: { start: startSlot, end: endSlot },
+      timeout: 5000 // 5 second timeout
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching blobs range:', error);
+    
+    if (axios.isAxiosError(error) && !error.response) {
+      console.warn('Network error detected. Using mock data as fallback.');
+      return [
+        {
+          slot: startSlot,
+          count: 2,
+          blobs: [
+            {
+              index: '0',
+              size: 131072,
+              compressed_size: 65536,
+              compression_ratio: 0.5,
+              zero_bytes: 98304,
+              non_zero_bytes: 32768,
+              zero_percentage: 75
+            },
+            {
+              index: '1',
+              size: 131072,
+              compressed_size: 78643,
+              compression_ratio: 0.6,
+              zero_bytes: 85196,
+              non_zero_bytes: 45876,
+              zero_percentage: 65
+            }
+          ],
+          total_size: 262144,
+          total_compressed_size: 144179,
+          avg_compression_ratio: 0.55
+        },
+        {
+          slot: endSlot,
+          count: 0,
+          blobs: [],
+          total_size: 0,
+          total_compressed_size: 0,
+          avg_compression_ratio: 0
+        }
+      ];
     }
     
     throw error;

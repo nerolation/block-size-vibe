@@ -3,7 +3,7 @@ import requests
 import snappy
 # import ssz
 import time
-from app.beacon_client import get_block, get_blocks_range
+from app.beacon_client import get_block, get_blocks_range, get_blob_sidecars, get_blobs_range
 
 blocks_bp = Blueprint('blocks', __name__, url_prefix='/api')
 
@@ -40,5 +40,32 @@ def latest():
     try:
         block_data = get_block('head')
         return jsonify(block_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@blocks_bp.route('/blob/<block_id>', methods=['GET'])
+def blob(block_id):
+    """Get blob sidecars for a specific block."""
+    try:
+        blob_data = get_blob_sidecars(block_id)
+        return jsonify(blob_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@blocks_bp.route('/blobs', methods=['GET'])
+def blobs():
+    """Get blob sidecars for multiple blocks in a slot range."""
+    try:
+        start_slot = request.args.get('start', type=int)
+        end_slot = request.args.get('end', type=int)
+        
+        if not start_slot or not end_slot:
+            return jsonify({'error': 'start and end slots are required'}), 400
+            
+        if end_slot - start_slot > 100:
+            return jsonify({'error': 'Maximum range is 100 slots'}), 400
+            
+        blobs_data = get_blobs_range(start_slot, end_slot)
+        return jsonify(blobs_data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500 

@@ -8,6 +8,7 @@ from functools import lru_cache
 
 # Simple in-memory cache to avoid redundant requests
 block_cache = {}
+blob_cache = {}
 
 def get_block(block_id):
     """
@@ -197,5 +198,165 @@ def get_blocks_range(start_slot, end_slot):
             # results.append(placeholder_block)  # Uncomment to include missing blocks
             # Skip failed blocks but continue
             continue
+    
+    return results 
+
+def get_blob_sidecars(block_id):
+    """
+    Fetch blob sidecars for a specific block from the beacon node.
+    
+    Args:
+        block_id: Can be 'head', a slot number, or a block root hash
+    
+    Returns:
+        Dict with blob information including count, sizes, and compression statistics
+    """
+    # Check cache first, but skip cache for 'head' requests
+    if block_id != 'head' and block_id in blob_cache:
+        return blob_cache[block_id]
+    
+    beacon_url = current_app.config['BEACON_NODE_URL']
+    endpoint = f"/eth/v1/beacon/blob_sidecars/{block_id}"
+    
+    try:
+        # Get blob sidecars
+        response = requests.get(
+            f"{beacon_url}{endpoint}",
+            headers={"Accept": "application/json"},
+            timeout=5  # 5 second timeout
+        )
+        
+        response.raise_for_status()  # Raise exception for non-200 responses
+        
+        json_data = response.json()
+        blobs = json_data.get('data', [])
+        
+        # Process blob data
+        result = {
+            'count': len(blobs),
+            'blobs': []
+        }
+        
+        total_size = 0
+        total_compressed_size = 0
+        
+        for blob in blobs:
+            blob_hex = blob.get('blob', '')
+            
+            # Skip if blob data is not provided
+            if not blob_hex:
+                continue
+                
+            # Convert hex to bytes
+            try:
+                # Remove '0x' prefix if present
+                if blob_hex.startswith('0x'):
+                    blob_hex = blob_hex[2:]
+                
+                blob_bytes = bytes.fromhex(blob_hex)
+                blob_size = len(blob_bytes)
+                
+                # Count zero and non-zero bytes
+                zero_bytes = blob_bytes.count(0)
+                non_zero_bytes = blob_size - zero_bytes
+                
+                # Compress the blob using snappy
+                compressed_blob = snappy.compress(blob_bytes)
+                compressed_size = len(compressed_blob)
+                
+                # Calculate compression ratio
+                compression_ratio = compressed_size / blob_size if blob_size > 0 else 0
+                
+                blob_info = {
+                    'index': blob.get('index', ''),
+                    'size': blob_size,
+                    'compressed_size': compressed_size,
+                    'compression_ratio': round(compression_ratio, 4),
+                    'zero_bytes': zero_bytes,
+                    'non_zero_bytes': non_zero_bytes,
+                    'zero_percentage': round((zero_bytes / blob_size) * 100, 2) if blob_size > 0 else 0
+                }
+                
+                result['blobs'].append(blob_info)
+                total_size += blob_size
+                total_compressed_size += compressed_size
+            except Exception as e:
+                print(f"Error processing blob data: {str(e)}")
+                continue
+        
+        # Add aggregate statistics
+        if result['count'] > 0:
+            result['total_size'] = total_size
+            result['total_compressed_size'] = total_compressed_size
+            result['avg_compression_ratio'] = round(total_compressed_size / total_size, 4) if total_size > 0 else 0
+            
+        # Cache the result (limited to 100 blocks), but don't cache 'head' requests
+        if block_id != 'head':
+            if len(blob_cache) >= 100:
+                oldest_key = next(iter(blob_cache))
+                del blob_cache[oldest_key]
+            blob_cache[block_id] = result
+        
+        return result
+        
+    except requests.exceptions.Timeout:
+        print(f"Timeout fetching blob sidecars for block {block_id}")
+        raise Exception(f"Beacon node API request timed out for blob sidecars of block {block_id}")
+        
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP error fetching blob sidecars for block {block_id}: {str(e)}")
+        
+        # Handle 404 gracefully - some blocks may not have blob sidecars
+        if e.response.status_code == 404:
+            result = {
+                'count': 0,
+                'blobs': [],
+                'total_size': 0,
+                'total_compressed_size': 0,
+                'avg_compression_ratio': 0
+            }
+            return result
+            
+        raise Exception(f"Beacon node API returned an error: {str(e)}")
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Request error fetching blob sidecars for block {block_id}: {str(e)}")
+        raise Exception(f"Failed to connect to beacon node: {str(e)}")
+        
+    except Exception as e:
+        print(f"Unexpected error processing blob sidecars for block {block_id}: {str(e)}")
+        raise Exception(f"Error processing blob data: {str(e)}")
+
+def get_blobs_range(start_slot, end_slot):
+    """
+    Fetch blob sidecars for multiple blocks in the given slot range.
+    
+    Args:
+        start_slot: Starting slot number
+        end_slot: Ending slot number
+    
+    Returns:
+        List of blob data dictionaries
+    """
+    results = []
+    for slot in range(start_slot, end_slot + 1):
+        try:
+            blob_data = get_blob_sidecars(str(slot))
+            # Add slot number to the result
+            blob_data['slot'] = slot
+            results.append(blob_data)
+        except Exception as e:
+            print(f"Error fetching blob sidecars at slot {slot}: {str(e)}")
+            # Create a placeholder with only the slot number
+            placeholder = {
+                'slot': slot,
+                'count': 0,
+                'blobs': [],
+                'total_size': 0,
+                'total_compressed_size': 0,
+                'avg_compression_ratio': 0,
+                'error': str(e)
+            }
+            results.append(placeholder)
     
     return results 
