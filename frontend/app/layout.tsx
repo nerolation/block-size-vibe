@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 
-const inter = Inter({ subsets: ["latin"] });
+// Using standard CSS import for fonts instead of next/font
+// Add this to globals.css: @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 export const metadata: Metadata = {
   title: "Ethereum Block Size Dashboard",
@@ -17,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.className} bg-slate-900 text-slate-100`}>
+      <body className="bg-slate-900 text-slate-100 font-sans">
         <Providers>
           {children}
         </Providers>

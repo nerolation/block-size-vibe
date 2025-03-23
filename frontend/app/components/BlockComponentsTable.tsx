@@ -227,18 +227,22 @@ const BlockComponentsTable: React.FC<BlockComponentsTableProps> = ({ blocks }) =
   };
 
   return (
-    <div className={`bg-slate-800 p-4 rounded-lg shadow-lg h-full transition-opacity duration-300 ${isTransitioning ? 'opacity-80' : 'opacity-100'}`}>
+    <div className={`bg-slate-800 p-4 rounded-lg shadow-lg transition-opacity duration-300 ${isTransitioning ? 'opacity-80' : 'opacity-100'}`}>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-white">Component Size Breakdown</h2>
-        <button 
+        <button
           onClick={handleExportCSV}
-          className="px-2 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+          className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-white text-sm transition-colors duration-200"
         >
-          Export CSV
+          Export
         </button>
       </div>
-
-      <div className="overflow-auto flex-grow">
+      
+      <p className="text-sm text-slate-400 mb-4">
+        All sizes are shown in bytes using SSZ encoding. Component sizes are estimated based on the Ethereum consensus specifications.
+      </p>
+      
+      <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-700">
           <thead className="bg-slate-900">
             <tr>

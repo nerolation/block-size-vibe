@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, current_app
 import requests
 import snappy
-import ssz
+# import ssz
 import time
 from app.beacon_client import get_block, get_blocks_range
 

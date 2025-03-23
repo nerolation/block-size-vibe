@@ -6,6 +6,31 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Function to kill background processes
+cleanup() {
+  echo -e "\n${GREEN}Shutting down servers...${NC}"
+  
+  # Kill the backend process if it exists
+  if [ ! -z "$BACKEND_PID" ]; then
+    echo -e "${GREEN}Terminating backend server (PID: $BACKEND_PID)...${NC}"
+    kill -TERM $BACKEND_PID 2>/dev/null || kill -KILL $BACKEND_PID 2>/dev/null
+    wait $BACKEND_PID 2>/dev/null
+  fi
+  
+  # Find and kill any stray Python processes running on port 5000
+  STRAY_PID=$(lsof -i:5000 -t 2>/dev/null)
+  if [ ! -z "$STRAY_PID" ]; then
+    echo -e "${YELLOW}Found stray backend process on port 5000 (PID: $STRAY_PID), terminating...${NC}"
+    kill -TERM $STRAY_PID 2>/dev/null || kill -KILL $STRAY_PID 2>/dev/null
+  fi
+  
+  echo -e "${GREEN}Cleanup complete. Goodbye!${NC}"
+  exit 0
+}
+
+# Set up trap to catch termination signals
+trap cleanup SIGINT SIGTERM EXIT
+
 echo -e "${GREEN}===== Ethereum Block Size Dashboard =====${NC}"
 echo -e "Starting development environment..."
 
@@ -25,6 +50,14 @@ fi
 if ! command -v npm &> /dev/null; then
     echo -e "${RED}Error: npm not found. Please install npm.${NC}"
     exit 1
+fi
+
+# Check for any existing backend processes and kill them
+EXISTING_PID=$(lsof -i:5000 -t 2>/dev/null)
+if [ ! -z "$EXISTING_PID" ]; then
+    echo -e "${YELLOW}Found existing backend process on port 5000, terminating...${NC}"
+    kill -TERM $EXISTING_PID 2>/dev/null || kill -KILL $EXISTING_PID 2>/dev/null
+    sleep 1
 fi
 
 # Check if the backend virtual environment exists
@@ -65,9 +98,13 @@ python app.py &
 BACKEND_PID=$!
 cd ..
 
-# Wait a moment for the backend to start
-echo -e "${YELLOW}Waiting for backend to start...${NC}"
+# Check if backend started successfully
 sleep 2
+if ! kill -0 $BACKEND_PID 2>/dev/null; then
+    echo -e "${RED}Backend failed to start. Check for errors above.${NC}"
+    exit 1
+fi
+echo -e "${GREEN}Backend running with PID: $BACKEND_PID${NC}"
 
 # Install frontend dependencies if needed
 cd frontend
@@ -76,7 +113,7 @@ if [ ! -d "node_modules" ]; then
     npm install
     if [ $? -ne 0 ]; then
         echo -e "${RED}Failed to install frontend dependencies.${NC}"
-        kill $BACKEND_PID
+        cleanup
         exit 1
     fi
 fi
@@ -85,9 +122,9 @@ fi
 echo -e "${GREEN}Starting Next.js frontend...${NC}"
 echo -e "${YELLOW}Dashboard will be available at: http://localhost:3000${NC}"
 echo -e "${YELLOW}Press Ctrl+C to stop both servers${NC}"
+
+# Run the frontend in foreground - when this exits, our trap will clean up
 npm run dev
 
-# When frontend is terminated, kill the backend
-echo -e "${GREEN}Shutting down backend server...${NC}"
-kill $BACKEND_PID
-echo -e "${GREEN}Done!${NC}" 
+# We shouldn't reach here normally, but just in case
+cleanup 

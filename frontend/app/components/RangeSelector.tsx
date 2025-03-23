@@ -1,21 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 
 interface RangeSelectorProps {
   currentRange: { start: number; end: number };
   onRangeChange: (range: { start: number; end: number }) => void;
   latestSlot: number;
+  isPending?: boolean;
 }
 
 const RangeSelector: React.FC<RangeSelectorProps> = ({ 
   currentRange, 
   onRangeChange,
-  latestSlot
+  latestSlot,
+  isPending = false
 }) => {
   const [startSlot, setStartSlot] = useState<string>(currentRange.start.toString());
   const [endSlot, setEndSlot] = useState<string>(currentRange.end.toString());
   const [error, setError] = useState<string | null>(null);
   
-  const handleSubmit = (e: React.FormEvent) => {
+  // Update local state when props change
+  useEffect(() => {
+    setStartSlot(currentRange.start.toString());
+    setEndSlot(currentRange.end.toString());
+  }, [currentRange.start, currentRange.end]);
+  
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
     const start = parseInt(startSlot, 10);
@@ -45,41 +54,45 @@ const RangeSelector: React.FC<RangeSelectorProps> = ({
     // Clear error and update range
     setError(null);
     onRangeChange({ start, end });
-  };
+  }, [startSlot, endSlot, onRangeChange]);
   
-  const handleQuickRangeSelect = (range: number) => {
+  const handleQuickRangeSelect = useCallback((range: number) => {
     const newStartSlot = Math.max(0, latestSlot - range);
     setStartSlot(newStartSlot.toString());
     setEndSlot(latestSlot.toString());
     onRangeChange({ start: newStartSlot, end: latestSlot });
-  };
+  }, [latestSlot, onRangeChange]);
 
   return (
-    <div className="bg-slate-800 p-4 rounded-lg shadow-lg">
+    <div className={`bg-slate-800 p-4 rounded-lg shadow-lg transition-opacity duration-200 ${isPending ? 'opacity-70' : 'opacity-100'}`}>
       <h2 className="text-xl font-semibold mb-4 text-white">Block Range Selection</h2>
       
       <div className="flex flex-wrap gap-2 mb-4">
         <button 
           onClick={() => handleQuickRangeSelect(10)}
           className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm text-white"
+          disabled={isPending}
         >
           Last 10 Blocks
         </button>
         <button 
           onClick={() => handleQuickRangeSelect(20)}
           className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm text-white"
+          disabled={isPending}
         >
           Last 20 Blocks
         </button>
         <button 
           onClick={() => handleQuickRangeSelect(50)}
           className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm text-white"
+          disabled={isPending}
         >
           Last 50 Blocks
         </button>
         <button 
           onClick={() => handleQuickRangeSelect(100)}
           className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm text-white"
+          disabled={isPending}
         >
           Last 100 Blocks
         </button>
@@ -97,6 +110,7 @@ const RangeSelector: React.FC<RangeSelectorProps> = ({
             onChange={(e) => setStartSlot(e.target.value)}
             className="bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm"
             min="0"
+            disabled={isPending}
           />
         </div>
         
@@ -111,14 +125,16 @@ const RangeSelector: React.FC<RangeSelectorProps> = ({
             onChange={(e) => setEndSlot(e.target.value)}
             className="bg-slate-700 border border-slate-600 rounded px-3 py-2 text-white text-sm"
             min="0"
+            disabled={isPending}
           />
         </div>
         
         <button 
           type="submit"
-          className="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded text-white"
+          className={`bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded text-white ${isPending ? 'opacity-50 cursor-not-allowed' : ''}`}
+          disabled={isPending}
         >
-          Apply Range
+          {isPending ? 'Loading...' : 'Apply Range'}
         </button>
       </form>
       
@@ -131,4 +147,4 @@ const RangeSelector: React.FC<RangeSelectorProps> = ({
   );
 };
 
-export default RangeSelector; 
+export default React.memo(RangeSelector); 

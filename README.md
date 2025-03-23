@@ -76,6 +76,23 @@ You can run both the backend and frontend with a single command using the provid
 ./dev.sh
 ```
 
+This script will:
+- Start the backend (Flask) server on port 5000
+- Start the frontend (Next.js) server on port 3000
+- Automatically terminate both servers when you press Ctrl+C
+- Clean up any stray processes when starting/stopping
+
+### Troubleshooting Process Management
+
+If you encounter issues with stray backend processes:
+
+1. The script will automatically try to detect and terminate any existing processes on port 5000 when it starts
+2. If you notice the backend is still running after terminating the dev script, run:
+   ```
+   ./kill-api.sh
+   ```
+   This utility script will find and kill any processes running on port 5000
+
 ## Connecting to a Beacon Node
 
 The application requires access to an Ethereum Beacon Chain node. Options include:

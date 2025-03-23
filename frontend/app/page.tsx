@@ -1,25 +1,34 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchLatestBlock, fetchBlocks } from './api/blockService';
+import { fetchLatestBlock, fetchBlocks, Block } from './api/blockService';
 import BlockSizeChart from './components/BlockSizeChart';
 import BlockSizeMetrics from './components/BlockSizeMetrics';
 import BlockList from './components/BlockList';
 import RangeSelector from './components/RangeSelector';
 import Header from './components/Header';
+import UpdateCountdown from './components/UpdateCountdown';
+import BlockComponentsTable from './components/BlockComponentsTable';
+
+// Auto-refresh interval in milliseconds (12 seconds)
+const AUTO_REFRESH_INTERVAL = 12000;
 
 export default function Home() {
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [isPending, startTransition] = useTransition();
+  const prevBlocksRef = useRef<Block[]>([]);
   
   // Query for the latest block
   const latestBlockQuery = useQuery({
     queryKey: ['latestBlock'],
     queryFn: fetchLatestBlock,
-    refetchInterval: autoRefresh ? 12000 : false,
+    refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL : false,
     retry: 1,
     refetchOnWindowFocus: false,
+    staleTime: 5000,
+    refetchOnMount: false,
   });
 
   // Set the initial range when we get the latest block
@@ -33,22 +42,57 @@ export default function Home() {
     }
   }, [latestBlockQuery.data, range]);
 
+  // Auto-update range to follow latest block when autoRefresh is enabled
+  useEffect(() => {
+    if (autoRefresh && latestBlockQuery.data && range) {
+      const latestSlot = latestBlockQuery.data.slot;
+      const currentRangeSize = range.end - range.start;
+      
+      // Only update if the latest slot is beyond our current range
+      if (latestSlot > range.end) {
+        startTransition(() => {
+          setRange({
+            start: Math.max(0, latestSlot - currentRangeSize),
+            end: latestSlot
+          });
+        });
+      }
+    }
+  }, [latestBlockQuery.data, autoRefresh, range]);
+
   // Query for blocks in range
   const blocksQuery = useQuery({
     queryKey: ['blocks', range?.start, range?.end],
     queryFn: () => range ? fetchBlocks(range.start, range.end) : Promise.resolve([]),
     enabled: !!range,
-    refetchInterval: autoRefresh ? 12000 : false,
+    refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL : false,
     retry: 1,
     refetchOnWindowFocus: false,
+    staleTime: 5000,
+    refetchOnMount: false,
   });
 
-  const blocks = blocksQuery.data || [];
-  const isLoading = latestBlockQuery.isLoading || blocksQuery.isLoading;
+  // Store previous successful blocks data
+  useEffect(() => {
+    if (blocksQuery.data && blocksQuery.data.length > 0) {
+      prevBlocksRef.current = blocksQuery.data;
+    }
+  }, [blocksQuery.data]);
+
+  // Use previous data during loading states to prevent blinking
+  const blocks = blocksQuery.isLoading && prevBlocksRef.current.length > 0 
+    ? prevBlocksRef.current 
+    : blocksQuery.data || [];
+
+  const isLoading = 
+    (latestBlockQuery.isLoading && !latestBlockQuery.data) || 
+    (blocksQuery.isLoading && !blocksQuery.data && prevBlocksRef.current.length === 0);
   const isError = latestBlockQuery.isError || blocksQuery.isError;
 
   const handleRangeChange = (newRange: { start: number; end: number }) => {
-    setRange(newRange);
+    startTransition(() => {
+      setRange(newRange);
+    });
   };
 
   const toggleAutoRefresh = () => {
@@ -56,11 +100,12 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen p-4 md:p-8">
+    <main className={`min-h-screen p-4 md:p-8 transition-opacity duration-300 ${isPending ? 'opacity-70' : 'opacity-100'} pb-24`}>
       <Header 
         autoRefresh={autoRefresh} 
         onToggleAutoRefresh={toggleAutoRefresh}
         latestBlock={latestBlockQuery.data}
+        isUpdating={isPending || blocksQuery.isFetching}
       />
       
       {isLoading && <div className="text-center mt-12">Loading block data...</div>}
@@ -81,7 +126,8 @@ export default function Home() {
           <RangeSelector 
             currentRange={range!} 
             onRangeChange={handleRangeChange}
-            latestSlot={latestBlockQuery.data?.slot || 0} 
+            latestSlot={latestBlockQuery.data?.slot || 0}
+            isPending={isPending} 
           />
           
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -91,6 +137,10 @@ export default function Home() {
             <div>
               <BlockSizeMetrics blocks={blocks} />
             </div>
+          </div>
+          
+          <div className="bg-slate-900/50 rounded-lg p-6">
+            <BlockComponentsTable blocks={blocks} />
           </div>
           
           <BlockList blocks={blocks} />
@@ -106,6 +156,12 @@ export default function Home() {
           </p>
         </div>
       )}
+      
+      {/* Countdown timer for next update */}
+      <UpdateCountdown 
+        autoRefresh={autoRefresh} 
+        interval={AUTO_REFRESH_INTERVAL} 
+      />
     </main>
   );
 }

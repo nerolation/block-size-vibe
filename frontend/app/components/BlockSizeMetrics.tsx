@@ -197,6 +197,10 @@ const BlockSizeMetrics: React.FC<BlockSizeMetricsProps> = ({ blocks }) => {
     <div className={`bg-slate-800 p-4 rounded-lg shadow-lg h-full transition-opacity duration-300 ${isTransitioning ? 'opacity-80' : 'opacity-100'}`}>
       <h2 className="text-xl font-semibold mb-4 text-white">Block Metrics</h2>
       
+      <p className="text-sm text-slate-400 mb-4">
+        Size metrics based on SSZ-encoded data. Component breakdown shows relative sizes of major block parts.
+      </p>
+      
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="text-center">
           <p className="text-slate-400 text-sm">SSZ Size</p>
