@@ -86,7 +86,17 @@ const BlockSizeMetrics: React.FC<BlockSizeMetricsProps> = ({ blocks }) => {
     });
 
     // Calculate total components sum
-    const componentsSum = Object.values(componentTotals).reduce((sum, value) => sum + value, 0);
+    let componentsSum = Object.values(componentTotals).reduce((sum, value) => sum + value, 0);
+    
+    // If sum exceeds total block size, normalize all components proportionally
+    if (componentsSum > sszSize) {
+      const scaleFactor = sszSize / componentsSum;
+      Object.keys(componentTotals).forEach(key => {
+        componentTotals[key] = Math.round(componentTotals[key] * scaleFactor);
+      });
+      // Recalculate sum after normalization
+      componentsSum = Object.values(componentTotals).reduce((sum, value) => sum + value, 0);
+    }
 
     // Sort components by size
     const sortedComponents: PieDataItem[] = Object.entries(componentTotals)
@@ -120,12 +130,14 @@ const BlockSizeMetrics: React.FC<BlockSizeMetricsProps> = ({ blocks }) => {
       }
     }
     
-    // Normalize the pie chart percentages to ensure they sum to 100%
+    // Double-check that pie data doesn't exceed total SSZ size
+    // This should rarely happen since we already normalized the components
     const pieTotal = pieData.reduce((sum, item) => sum + item.value, 0);
-    if (pieTotal !== componentsSum) {
+    if (Math.abs(pieTotal - sszSize) > 1) { // Allow 1 byte difference for rounding
+      const scaleFactor = sszSize / pieTotal;
       pieData = pieData.map(item => ({
         ...item,
-        value: Math.round((item.value / pieTotal) * componentsSum)
+        value: Math.round(item.value * scaleFactor)
       }));
     }
     
@@ -137,16 +149,6 @@ const BlockSizeMetrics: React.FC<BlockSizeMetricsProps> = ({ blocks }) => {
       componentsSum 
     };
   }, [blocks]);
-
-  // Whether there's a discrepancy between components and SSZ size
-  const hasDiscrepancy = useMemo(() => {
-    if (blocks.length === 0) return false;
-    
-    // Allow a small margin for rounding
-    const margin = 0.01; // 1%
-    const ratio = sszSize / componentsSum;
-    return Math.abs(1 - ratio) > margin;
-  }, [sszSize, componentsSum, blocks.length]);
 
   // Colors for pie chart
   const COLORS = [

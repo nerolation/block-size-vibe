@@ -69,6 +69,17 @@ const BlockComponentsTable: React.FC<BlockComponentsTableProps> = ({ blocks }) =
       componentSizes[key] = safeValue;
     });
     
+    // Calculate the sum of all components
+    const sum = Object.values(componentSizes).reduce((total, size) => total + size, 0);
+    
+    // If sum exceeds total block size, normalize all components proportionally
+    if (sum > latestBlock.ssz_size) {
+      const scaleFactor = latestBlock.ssz_size / sum;
+      Object.keys(componentSizes).forEach(key => {
+        componentSizes[key] = Math.round(componentSizes[key] * scaleFactor);
+      });
+    }
+    
     return componentSizes;
   }, [blocks]);
 
@@ -119,8 +130,8 @@ const BlockComponentsTable: React.FC<BlockComponentsTableProps> = ({ blocks }) =
   const getComponentPercentage = (size: number) => {
     if (totalSize === 0) return 0;
     
-    // Always normalize to sum up to 100%
-    return (size / componentsSum) * 100;
+    // Use totalSize (actual SSZ size) as the base for percentage calculation
+    return (size / totalSize) * 100;
   };
 
   // Sort the component entries
@@ -143,7 +154,7 @@ const BlockComponentsTable: React.FC<BlockComponentsTableProps> = ({ blocks }) =
     
     // Sort by percentage
     return [...entries].sort((a, b) => {
-      // Use total size for percentage calculations
+      // Use totalSize for percentage calculations
       const aPercent = (a[1] / totalSize) * 100;
       const bPercent = (b[1] / totalSize) * 100;
       const comparison = aPercent - bPercent;
@@ -162,8 +173,8 @@ const BlockComponentsTable: React.FC<BlockComponentsTableProps> = ({ blocks }) =
       getComponentPercentage(size).toFixed(2) + '%'
     ]);
     
-    // Add total row
-    rows.push(['Total Components', Math.round(componentsSum).toString(), Math.round(getCompressedSize(componentsSum)).toString(), getComponentPercentage(componentsSum).toFixed(2) + '%']);
+    // Add total row - use totalSize instead of componentsSum for consistency
+    rows.push(['Total', Math.round(totalSize).toString(), Math.round(latestSnappySize).toString(), '100.00%']);
     
     // Generate CSV
     const csvContent = [header, ...rows].map(row => row.join(',')).join('\n');
@@ -274,19 +285,19 @@ const BlockComponentsTable: React.FC<BlockComponentsTableProps> = ({ blocks }) =
               );
             })}
             
-            {/* Total components row */}
+            {/* Total row */}
             <tr className="bg-slate-700 font-medium">
               <td className="px-6 py-2 whitespace-nowrap text-sm text-white">
-                Total Components
+                Total
               </td>
               <td className="px-6 py-2 whitespace-nowrap text-sm text-white text-right">
-                {formatBytes(componentsSum)}
+                {formatBytes(totalSize)}
               </td>
               <td className="px-6 py-2 whitespace-nowrap text-sm text-white text-right">
-                {formatBytes(getCompressedSize(componentsSum))}
+                {formatBytes(latestSnappySize)}
               </td>
               <td className="px-6 py-2 whitespace-nowrap text-sm text-white text-right">
-                {getComponentPercentage(componentsSum).toFixed(2)}%
+                100.00%
               </td>
             </tr>
           </tbody>

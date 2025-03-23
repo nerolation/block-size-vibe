@@ -92,7 +92,7 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart
           data={chartData}
-          margin={{ top: 40, right: 50, left: 20, bottom: 60 }}
+          margin={{ top: 40, right: 70, left: 20, bottom: 60 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
           <XAxis 
@@ -119,11 +119,11 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
             orientation="right"
             tick={{ fill: '#cbd5e1' }}
             label={{ 
-              value: 'Compression Ratio (%)', 
+              value: 'Compression (%)', 
               angle: 90, 
               position: 'insideRight',
               style: { fill: '#cbd5e1' },
-              offset: 0
+              offset: 15
             }}
             domain={[0, 100]}
           />
