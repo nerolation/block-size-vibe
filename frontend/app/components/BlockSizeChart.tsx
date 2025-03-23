@@ -12,27 +12,49 @@ import {
   ComposedChart,
   TooltipProps
 } from 'recharts';
-import React from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 
 interface BlockSizeChartProps {
   blocks: Block[];
 }
 
 const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
-  // Ensure blocks are sorted by slot
-  const sortedBlocks = [...blocks].sort((a, b) => a.slot - b.slot);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const prevBlocksRef = useRef<Block[]>([]);
+  
+  // Detect changes in blocks for smooth transitions
+  useEffect(() => {
+    if (blocks.length > 0 && JSON.stringify(blocks) !== JSON.stringify(prevBlocksRef.current)) {
+      setIsTransitioning(true);
+      
+      // Store current blocks for comparison
+      prevBlocksRef.current = blocks;
+      
+      // Reset transition state after animation completes
+      const timer = setTimeout(() => {
+        setIsTransitioning(false);
+      }, 300);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [blocks]);
 
-  // Transform data for visualization
-  const chartData = sortedBlocks.map(block => ({
-    slot: block.slot,
-    'SSZ Size (KB)': Math.round(block.ssz_size / 1024 * 100) / 100,
-    'Snappy Size (KB)': Math.round(block.snappy_size / 1024 * 100) / 100,
-    compressionRatio: block.compression_ratio,
-    compressionPercentage: Math.round(block.compression_ratio * 100)
-  }));
+  // Transform data for visualization, wrapped in useMemo to prevent unnecessary recalculations
+  const chartData = useMemo(() => {
+    // Ensure blocks are sorted by slot
+    const sortedBlocks = [...blocks].sort((a, b) => a.slot - b.slot);
+    
+    return sortedBlocks.map(block => ({
+      slot: block.slot,
+      'SSZ Size (KB)': Math.round(block.ssz_size / 1024 * 100) / 100,
+      'Snappy Size (KB)': Math.round(block.snappy_size / 1024 * 100) / 100,
+      compressionRatio: block.compression_ratio,
+      compressionPercentage: Math.round(block.compression_ratio * 100)
+    }));
+  }, [blocks]);
 
   // Custom tooltip component to ensure proper display of units
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = React.memo(({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-800 p-3 border border-slate-700 rounded shadow-lg text-sm">
@@ -61,16 +83,16 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
       );
     }
     return null;
-  };
+  });
 
   return (
-    <div className="bg-slate-800 p-4 rounded-lg shadow-lg">
+    <div className={`bg-slate-800 p-4 rounded-lg shadow-lg transition-opacity duration-300 ${isTransitioning ? 'opacity-80' : 'opacity-100'}`}>
       <h2 className="text-xl font-semibold mb-4 text-white">Block Size Comparison</h2>
       
       <ResponsiveContainer width="100%" height={400}>
         <ComposedChart
           data={chartData}
-          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+          margin={{ top: 40, right: 50, left: 20, bottom: 60 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
           <XAxis 
@@ -88,7 +110,8 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
               value: 'Size (KB)', 
               angle: -90, 
               position: 'insideLeft',
-              style: { fill: '#cbd5e1' } 
+              style: { fill: '#cbd5e1' },
+              offset: 0
             }}
           />
           <YAxis 
@@ -99,7 +122,8 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
               value: 'Compression Ratio (%)', 
               angle: 90, 
               position: 'insideRight',
-              style: { fill: '#cbd5e1' } 
+              style: { fill: '#cbd5e1' },
+              offset: 0
             }}
             domain={[0, 100]}
           />
@@ -111,6 +135,7 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
             dataKey="SSZ Size (KB)" 
             fill="#3b82f6" 
             radius={[4, 4, 0, 0]}
+            animationDuration={300}
           />
           <Bar 
             yAxisId="left"
@@ -118,6 +143,7 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
             dataKey="Snappy Size (KB)" 
             fill="#8b5cf6" 
             radius={[4, 4, 0, 0]}
+            animationDuration={300}
           />
           <Line
             yAxisId="right"
@@ -128,6 +154,7 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
             strokeWidth={2}
             dot={{ r: 4, fill: '#10b981' }}
             activeDot={{ r: 6 }}
+            animationDuration={300}
           />
         </ComposedChart>
       </ResponsiveContainer>
@@ -135,4 +162,4 @@ const BlockSizeChart: React.FC<BlockSizeChartProps> = ({ blocks }) => {
   );
 };
 
-export default BlockSizeChart; 
+export default React.memo(BlockSizeChart); 
