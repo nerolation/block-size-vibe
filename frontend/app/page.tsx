@@ -16,6 +16,25 @@ import BlockComponentsTable from './components/BlockComponentsTable';
 // Auto-refresh interval in milliseconds (12 seconds)
 const AUTO_REFRESH_INTERVAL = 12000;
 
+// Helper to force mock data mode if the backend is not available
+const forceMockDataMode = () => {
+  if (typeof window !== 'undefined') {
+    // Check if we already have the mock parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    if (!urlParams.has('mock')) {
+      // Add mock parameter to URL if not present
+      urlParams.append('mock', 'true');
+      
+      // Update URL without refreshing the page
+      const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+      
+      console.log('Switched to mock data mode');
+    }
+  }
+};
+
 export default function Home() {
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -120,6 +139,14 @@ export default function Home() {
     blocksQuery.isError ||
     blobsQuery.isError;
 
+  // Check for backend connectivity and switch to mock mode if needed
+  useEffect(() => {
+    // If there's an error fetching data, force mock data mode
+    if (latestBlockQuery.isError || blocksQuery.isError || blobsQuery.isError) {
+      forceMockDataMode();
+    }
+  }, [latestBlockQuery.isError, blocksQuery.isError, blobsQuery.isError]);
+
   const handleRangeChange = (newRange: { start: number; end: number }) => {
     startTransition(() => {
       setRange(newRange);
@@ -174,6 +201,8 @@ export default function Home() {
             <BlockComponentsTable blocks={blocks} />
           </div>
           
+          <BlockList blocks={blocks} />
+          
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="lg:col-span-2">
               <BlobChart blockBlobs={blobs} />
@@ -181,8 +210,6 @@ export default function Home() {
           </div>
           
           <BlobTable blockBlobs={blobs} />
-          
-          <BlockList blocks={blocks} />
         </div>
       )}
       

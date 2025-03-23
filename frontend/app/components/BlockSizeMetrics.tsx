@@ -13,6 +13,35 @@ interface PieDataItem {
   components?: PieDataItem[];
 }
 
+// Custom label component to format labels with line breaks
+const renderCustomizedLabel = (props: any) => {
+  const { cx, cy, midAngle, innerRadius, outerRadius, percent, name, index } = props;
+  const RADIAN = Math.PI / 180;
+  
+  // Calculate the position of the label
+  const radius = innerRadius + (outerRadius - innerRadius) * 1.1;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  
+  // Format name with line breaks for readability
+  const formattedName = name.split(' ').join('\n');
+  
+  return (
+    <text 
+      x={x} 
+      y={y} 
+      fill="#fff" 
+      textAnchor={x > cx ? 'start' : 'end'} 
+      dominantBaseline="central"
+      fontSize="12"
+    >
+      {formattedName}
+      {'\n'}
+      {`${(percent * 100).toFixed(2)}%`}
+    </text>
+  );
+};
+
 const BlockSizeMetrics: React.FC<BlockSizeMetricsProps> = ({ blocks }) => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const prevBlocksRef = useRef<Block[]>([]);
@@ -226,12 +255,13 @@ const BlockSizeMetrics: React.FC<BlockSizeMetricsProps> = ({ blocks }) => {
               data={pieData}
               cx="50%"
               cy="50%"
+              innerRadius={40}
               outerRadius={80}
               fill="#8884d8"
               dataKey="value"
               nameKey="name"
-              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(2)}%`}
-              labelLine={false}
+              label={renderCustomizedLabel}
+              labelLine={true}
               animationDuration={300}
               animationBegin={0}
             >

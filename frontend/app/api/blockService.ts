@@ -22,11 +22,27 @@ const MOCK_BLOCK: Block = {
   timestamp: Date.now() / 1000
 };
 
-// Mock block list
+// Mock block list with unique block roots for each block
 const MOCK_BLOCKS: Block[] = [
-  { ...MOCK_BLOCK, slot: 12345 },
-  { ...MOCK_BLOCK, slot: 12346, ssz_size: 108544, components: { ...MOCK_BLOCK.components, attestations: 20480 } },
-  { ...MOCK_BLOCK, slot: 12347, ssz_size: 116736, components: { ...MOCK_BLOCK.components, execution_payload: 78336 } }
+  { 
+    ...MOCK_BLOCK, 
+    slot: 12345,
+    block_root: "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  },
+  { 
+    ...MOCK_BLOCK, 
+    slot: 12346, 
+    ssz_size: 108544, 
+    components: { ...MOCK_BLOCK.components, attestations: 20480 },
+    block_root: "0x2345678901abcdef2345678901abcdef2345678901abcdef2345678901abcdef"
+  },
+  { 
+    ...MOCK_BLOCK, 
+    slot: 12347, 
+    ssz_size: 116736, 
+    components: { ...MOCK_BLOCK.components, execution_payload: 78336 },
+    block_root: "0x3456789012abcdef3456789012abcdef3456789012abcdef3456789012abcdef"
+  }
 ];
 
 // Function to determine if we should use mock data (based on environment or query param)
