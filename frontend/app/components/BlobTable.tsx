@@ -122,9 +122,9 @@ const BlobTable: React.FC<BlobTableProps> = ({ blockBlobs }) => {
             </div>
             
             <div className="bg-slate-700 p-3 rounded-lg">
-              <div className="text-slate-300 text-sm mb-1">Avg. Compression</div>
+              <div className="text-slate-300 text-sm mb-1">Avg. Compression Ratio</div>
               <div className="text-white text-xl font-medium">
-                {formatPercentage(flattenedData.reduce((acc, blob) => acc + (blob.compression_ratio || 0), 0) / totalBlobCount * 100)}%
+                {formatPercentage(100 - (flattenedData.reduce((acc, blob) => acc + (blob.compression_ratio || 0), 0) / totalBlobCount * 100))}%
               </div>
             </div>
             
@@ -201,7 +201,7 @@ const BlobTable: React.FC<BlobTableProps> = ({ blockBlobs }) => {
                   {(blob as any).isPlaceholder ? '-' : formatSize(blob.compressed_size)}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {(blob as any).isPlaceholder ? '-' : formatPercentage(blob.compression_ratio * 100) + '%'}
+                  {(blob as any).isPlaceholder ? '-' : formatPercentage(100 - (blob.compression_ratio * 100)) + '%'}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {(blob as any).isPlaceholder ? '-' : formatPercentage(blob.zero_percentage) + '%'}
