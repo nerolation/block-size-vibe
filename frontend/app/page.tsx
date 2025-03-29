@@ -13,6 +13,7 @@ import RangeSelector from './components/RangeSelector';
 import Header from './components/Header';
 import UpdateCountdown from './components/UpdateCountdown';
 import BlockComponentsTable from './components/BlockComponentsTable';
+import Tabs from './components/Tabs';
 
 // Auto-refresh interval in milliseconds (12 seconds)
 const AUTO_REFRESH_INTERVAL = 12000;
@@ -184,6 +185,48 @@ export default function Home() {
     setAutoRefresh(!autoRefresh);
   };
 
+  // Define tab content
+  const renderBlocksTab = () => (
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <BlockSizeChart blocks={blocks} />
+        </div>
+        <div>
+          <BlockSizeMetrics blocks={blocks} />
+        </div>
+      </div>
+      
+      <div className="bg-slate-900/50 rounded-lg p-6 mt-8">
+        <BlockComponentsTable blocks={blocks} />
+      </div>
+      
+      <div className="mt-8">
+        <BlockList blocks={blocks} />
+      </div>
+    </>
+  );
+
+  const renderBlobsTab = () => (
+    <>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="lg:col-span-2">
+          <BlobChart blockBlobs={blobs} />
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <div className="lg:col-span-2">
+          <BlobBaseFeeChart blobFees={blobFees} />
+        </div>
+      </div>
+      
+      <div className="mt-8">
+        <BlobTable blockBlobs={blobs} />
+      </div>
+    </>
+  );
+
   return (
     <main className={`min-h-screen p-4 md:p-8 transition-opacity duration-300 ${isPending ? 'opacity-70' : 'opacity-100'} pb-24`}>
       <Header 
@@ -215,34 +258,21 @@ export default function Home() {
             isPending={isPending} 
           />
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2">
-              <BlockSizeChart blocks={blocks} />
-            </div>
-            <div>
-              <BlockSizeMetrics blocks={blocks} />
-            </div>
-          </div>
-          
-          <div className="bg-slate-900/50 rounded-lg p-6">
-            <BlockComponentsTable blocks={blocks} />
-          </div>
-          
-          <BlockList blocks={blocks} />
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="lg:col-span-2">
-              <BlobChart blockBlobs={blobs} />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="lg:col-span-2">
-              <BlobBaseFeeChart blobFees={blobFees} />
-            </div>
-          </div>
-          
-          <BlobTable blockBlobs={blobs} />
+          <Tabs
+            tabs={[
+              {
+                id: 'blocks',
+                label: 'Blocks',
+                content: renderBlocksTab()
+              },
+              {
+                id: 'blobs',
+                label: 'Blobs',
+                content: renderBlobsTab()
+              }
+            ]}
+            defaultTabId="blocks"
+          />
         </div>
       )}
       

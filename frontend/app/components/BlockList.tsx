@@ -78,9 +78,9 @@ const BlockList: React.FC<BlockListProps> = ({ blocks }) => {
     <div className={`bg-slate-800 p-4 rounded-lg shadow-lg transition-opacity duration-300 ${isTransitioning ? 'opacity-80' : 'opacity-100'}`}>
       <h2 className="text-xl font-semibold mb-4 text-white">Block Details</h2>
       
-      <div className="overflow-auto max-h-96">
+      <div className="overflow-x-auto">
         <table className="min-w-full text-sm text-slate-300">
-          <thead className="bg-slate-700 sticky top-0">
+          <thead className="bg-slate-700">
             <tr>
               <th className="px-4 py-2 text-left">Slot</th>
               <th className="px-4 py-2 text-right">SSZ Size</th>
