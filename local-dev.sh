@@ -22,14 +22,14 @@ trap cleanup INT TERM
 cd "$(dirname "$0")"
 
 # Use the correct Python version
-PYTHON_CMD="python3.10"
+PYTHON_CMD="python3"
 if ! command -v $PYTHON_CMD &> /dev/null; then
   # Try using pyenv to find the correct Python
   if command -v pyenv &> /dev/null; then
     PYTHON_CMD="$(pyenv which python)"
     echo "Using pyenv Python: $PYTHON_CMD"
   else
-    echo "Error: Cannot find Python 3.10. Please install it or update this script."
+    echo "Error: Cannot find Python 3. Please install it or update this script."
     exit 1
   fi
 fi
@@ -37,6 +37,8 @@ fi
 # Start the backend with local endpoints
 echo "Starting backend with local endpoints..."
 cd backend
+# Activate the virtual environment
+source venv/bin/activate
 $PYTHON_CMD app.py --use-local &
 BACKEND_PID=$!
 cd ..

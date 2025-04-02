@@ -16,9 +16,9 @@ A professional, performant, and minimal dashboard for visualizing Ethereum Beaco
 - [Python](https://www.python.org/) (v3.8 or later)
 - [Ethereum Beacon Node](https://ethereum.org/en/developers/docs/nodes-and-clients/) (like Lighthouse, Prysm, or Nimbus) - optional for local node usage
 
-## Quick Start (Local Development)
+## Quick Start (Recommended)
 
-The easiest way to run the application locally:
+The easiest and recommended way to run the application locally:
 
 1. Clone the repository:
    ```
@@ -26,19 +26,36 @@ The easiest way to run the application locally:
    cd block-size-ethereum
    ```
 
-2. Run the local development script:
+2. Make the script executable if needed:
+   ```
+   chmod +x local-dev.sh
+   ```
+
+3. Run the local development script:
    ```
    ./local-dev.sh
    ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-The `local-dev.sh` script will:
-- Start the backend with local endpoints configuration
-- Start the frontend development server
-- Configure the application to use standard local node endpoints if available
+The `local-dev.sh` script handles everything for you:
+- Starts the backend with local endpoints configuration
+- Starts the frontend development server
+- Configures the application to use standard local node endpoints
+- Automatically manages process cleanup on exit
+
+## Alternative Scripts
+
+Besides the recommended `local-dev.sh`, there are other scripts available:
+
+- `run-with-correct-port.sh`: Similar to local-dev.sh but explicitly sets the Beacon and Execution node ports
+- `dev.sh`: Legacy script that may require additional configuration
+
+We recommend using `local-dev.sh` for the most straightforward setup.
 
 ## Manual Setup
+
+If you prefer to set up components manually, follow these steps:
 
 ### Backend
 
@@ -74,7 +91,7 @@ The `local-dev.sh` script will:
    python app.py
    ```
    
-   To use local node endpoints:
+   To use local node endpoints (recommended):
    ```
    python app.py --use-local
    ```
@@ -99,32 +116,12 @@ The `local-dev.sh` script will:
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Running the Full Application
-
-You can run both the backend and frontend with a single command using either of the provided scripts:
-
-- For local node development:
-  ```
-  ./local-dev.sh
-  ```
-
-- For default configuration (including remote nodes):
-  ```
-  ./dev.sh
-  ```
-
-These scripts will:
-- Start the backend (Flask) server on port 5000
-- Start the frontend (Next.js) server on port 3000
-- Automatically terminate both servers when you press Ctrl+C
-- Clean up any stray processes when starting/stopping
-
-### Troubleshooting Process Management
+## Troubleshooting Process Management
 
 If you encounter issues with stray backend processes:
 
-1. The script will automatically try to detect and terminate any existing processes on port 5000 when it starts
-2. If you notice the backend is still running after terminating the dev script, run:
+1. The scripts automatically try to detect and terminate any existing processes on port 5000 when they start
+2. If you notice the backend is still running after terminating a script, run:
    ```
    ./kill-api.sh
    ```
@@ -139,11 +136,11 @@ The application requires access to an Ethereum Beacon Chain node and Execution n
    - [Prysm](https://docs.prylabs.network/docs/install/install-with-script)
    - [Nimbus](https://nimbus.guide/quick-start.html)
    
-   Use the `--use-local` flag when starting the backend to automatically connect to standard local node ports.
+   When using `local-dev.sh` or the `--use-local` flag, the backend will automatically connect to standard local node ports.
 
 2. **Remote Node**: Use a service like Infura or Alchemy, or the default endpoints (requires API key)
 
-Update the following in the `.env` file:
+Update the following in the `.env` file if using remote nodes:
 - `BEACON_NODE_URL`: Your beacon node's HTTP API endpoint
 - `EXECUTION_NODE_URL`: Your execution node's JSON-RPC endpoint
 - `X_API_KEY`: API key if required by your node
@@ -169,16 +166,16 @@ pip install pySSZ
 
 If the frontend shows "Error loading block data":
 
-1. Check if your backend is running (`python app.py` in the backend directory)
-2. Verify the backend is accessible at http://localhost:5000
-3. Check if CORS is properly enabled in the backend
+1. Check if your backend is running (verify it's accessible at http://localhost:5000)
+2. Check the console for error messages
+3. Make sure you have the necessary Python dependencies installed
 
 ### Beacon Node Connection
 
 If the backend can't connect to the beacon node:
 
 1. Verify your beacon node is running and the API is accessible
-2. Check the URL in the backend `.env` file or use command line arguments
+2. For local nodes, ensure they're running on the standard ports
 3. Make sure the beacon node's HTTP API is enabled and properly configured
 
 ## Architecture
