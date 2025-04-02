@@ -6,17 +6,52 @@ import time
 import json
 from functools import lru_cache
 import os
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
+import random
+
+# Constants for blob base fee calculation
+MAX_BLOB_GAS_PER_BLOCK = 786432
+TARGET_BLOB_GAS_PER_BLOCK = 393216
+MIN_BASE_FEE_PER_BLOB_GAS = 1
+BLOB_BASE_FEE_UPDATE_FRACTION = 3338477
 
 # Simple in-memory cache to avoid redundant requests
 block_cache = {}
 blob_cache = {}
 blob_fee_cache = {}
 
-# Execution node URL - defaults to localhost:8545 if not set
+# Helper function to properly join URLs without double slashes
+def join_url(base, path):
+    """Join base URL and path, avoiding double slashes."""
+    if not base.endswith('/'):
+        base += '/'
+    if path.startswith('/'):
+        path = path[1:]
+    return base + path
+
+# Execution node URL - use app config
 def get_execution_node_url():
-    exec_url = os.environ.get('EXECUTION_NODE_URL', 'http://localhost:8545')
-    return exec_url
+    if hasattr(current_app, 'config') and 'EXECUTION_NODE_URL' in current_app.config:
+        return current_app.config['EXECUTION_NODE_URL']
+    return 'https://node.toniwahrstaetter.dev/execution/'
+
+# Helper function to add API key to headers if available
+def add_api_key_to_headers(headers):
+    # Check if this is a local endpoint (don't need API key)
+    beacon_url = current_app.config.get('BEACON_NODE_URL', '')
+    if beacon_url.startswith('http://localhost:'):
+        return headers
+        
+    # Add API key for non-local endpoints if available
+    if current_app.config.get('X_API_KEY'):
+        headers["X-API-Key"] = current_app.config['X_API_KEY']
+    return headers
+
+# Helper function for exponential backoff with jitter
+def get_backoff_time(retry_count, base_delay=1, max_delay=10):
+    # Exponential backoff: base_delay * 2^retry_count + random jitter
+    delay = min(base_delay * (2 ** retry_count) + random.uniform(0, 0.5), max_delay)
+    return delay
 
 def get_transaction_size_from_execution_node(block_number):
     """
@@ -34,12 +69,24 @@ def get_transaction_size_from_execution_node(block_number):
         "id": 1
     }
     
+    headers = {
+        "Content-Type": "application/json"
+    }
+    
+    # Add API key if available
+    headers = add_api_key_to_headers(headers)
+    
+    # Set up retry parameters
+    max_retries = 2
+    retry_count = 0
+    
+    while retry_count <= max_retries:
     try:
         response = requests.post(
             exec_url,
             json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=3
+                headers=headers,
+                timeout=15  # 15 second timeout
         )
         
         if response.status_code == 200:
@@ -75,11 +122,36 @@ def get_transaction_size_from_execution_node(block_number):
             
             return total_size
         else:
-            print(f"Failed to get block from execution node: {response.status_code}")
+                retry_count += 1
+                print(f"Failed to get block from execution node: {response.status_code} (attempt {retry_count}/{max_retries+1})")
+                
+                if retry_count <= max_retries:
+                    print(f"Retrying... ({retry_count}/{max_retries})")
+                    time.sleep(get_backoff_time(retry_count))
+                else:
+                    print(f"All retries failed for execution node request")
+                    return None
+        
+        except requests.exceptions.Timeout:
+            retry_count += 1
+            print(f"Timeout getting block from execution node (attempt {retry_count}/{max_retries+1})")
+            
+            if retry_count <= max_retries:
+                print(f"Retrying... ({retry_count}/{max_retries})")
+                time.sleep(get_backoff_time(retry_count))
+            else:
+                print(f"All retries failed for execution node request due to timeouts")
             return None
     
     except Exception as e:
-        print(f"Error getting block from execution node: {str(e)}")
+            retry_count += 1
+            print(f"Error getting block from execution node: {str(e)} (attempt {retry_count}/{max_retries+1})")
+            
+            if retry_count <= max_retries:
+                print(f"Retrying... ({retry_count}/{max_retries})")
+                time.sleep(get_backoff_time(retry_count))
+            else:
+                print(f"All retries failed for execution node request")
         return None
 
 def get_block(block_id):
@@ -100,23 +172,36 @@ def get_block(block_id):
     beacon_url = current_app.config['BEACON_NODE_URL']
     base_endpoint = f"/eth/v2/beacon/blocks/{block_id}"
     
+    # Setup headers
+    headers = {"Accept": "application/json"}
+    headers = add_api_key_to_headers(headers)
+    
+    # Set up retry parameters
+    max_retries = 2
+    retry_count = 0
+    last_error = None
+    
+    while retry_count <= max_retries:
     try:
         # 1. Get JSON data with timeout
         json_response = requests.get(
-            f"{beacon_url}{base_endpoint}",
-            headers={"Accept": "application/json"},
-            timeout=5  # 5 second timeout
+                join_url(beacon_url, base_endpoint),
+                headers=headers,
+                timeout=15  # 15 second timeout
         )
         
         json_response.raise_for_status()  # Raise exception for non-200 responses
         
         json_data = json_response.json()
+            
+            # Update headers for SSZ request
+            headers["Accept"] = "application/octet-stream"
         
         # 2. Get SSZ binary data with timeout
         ssz_response = requests.get(
-            f"{beacon_url}{base_endpoint}",
-            headers={"Accept": "application/octet-stream"},
-            timeout=5  # 5 second timeout
+                join_url(beacon_url, base_endpoint),
+                headers=headers,
+                timeout=15  # 15 second timeout
         )
         
         ssz_response.raise_for_status()  # Raise exception for non-200 responses
@@ -169,10 +254,13 @@ def get_block(block_id):
                     # Try plan B: Get from Beacon API directly
                     try:
                         # Try to get execution payload directly in octet-stream format
+                            payload_headers = {"Accept": "application/octet-stream"}
+                            payload_headers = add_api_key_to_headers(payload_headers)
+                                
                         payload_response = requests.get(
-                            f"{beacon_url}/eth/v2/beacon/blocks/{block_id}/execution_payload",
-                            headers={"Accept": "application/octet-stream"},
-                            timeout=3
+                                join_url(beacon_url, f"/eth/v2/beacon/blocks/{block_id}/execution_payload"),
+                                headers=payload_headers,
+                                timeout=15
                         )
                         
                         if payload_response.status_code == 200:
@@ -182,10 +270,13 @@ def get_block(block_id):
                         else:
                             # Try to get the JSON data and estimate size better
                             try:
+                                    json_payload_headers = {"Accept": "application/json"}
+                                    json_payload_headers = add_api_key_to_headers(json_payload_headers)
+                                        
                                 json_payload_response = requests.get(
-                                    f"{beacon_url}/eth/v2/beacon/blocks/{block_id}/execution_payload",
-                                    headers={"Accept": "application/json"},
-                                    timeout=3
+                                        join_url(beacon_url, f"/eth/v2/beacon/blocks/{block_id}/execution_payload"),
+                                        headers=json_payload_headers,
+                                        timeout=15
                                 )
                                 
                                 if json_payload_response.status_code == 200:
@@ -288,8 +379,16 @@ def get_block(block_id):
         return result
         
     except requests.exceptions.Timeout:
-        print(f"Timeout fetching block {block_id} from beacon node")
-        raise Exception(f"Beacon node API request timed out for block {block_id}")
+            retry_count += 1
+            last_error = f"Timeout fetching block {block_id} from beacon node (attempt {retry_count}/{max_retries+1})"
+            print(last_error)
+            
+            if retry_count <= max_retries:
+                print(f"Retrying... ({retry_count}/{max_retries})")
+                time.sleep(get_backoff_time(retry_count))
+            else:
+                print(f"All retries failed for block {block_id}")
+                raise Exception(f"Beacon node API request timed out for block {block_id} after {max_retries+1} attempts")
         
     except requests.exceptions.HTTPError as e:
         print(f"HTTP error fetching block {block_id}: {str(e)}")
@@ -344,33 +443,35 @@ def get_blocks_range(start_slot, end_slot):
 
 def get_blob_sidecars(block_id):
     """
-    Fetch blob sidecars for a specific block from the beacon node.
+    Fetch blob sidecars for a specific block.
     
     Args:
-        block_id: Can be 'head', a slot number, or a block root hash
+        block_id: Block identifier (slot number, 'head', or block root hash)
     
     Returns:
-        Dict with blob information including count, sizes, and compression statistics
+        Dict with blob size metrics and components
     """
-    # Check cache first, but skip cache for 'head' requests
+    # Check cache first, but skip cache for 'head' requests to ensure we always get fresh data
     if block_id != 'head' and block_id in blob_cache:
         return blob_cache[block_id]
     
     beacon_url = current_app.config['BEACON_NODE_URL']
-    endpoint = f"/eth/v1/beacon/blob_sidecars/{block_id}"
+    
+    # Setup headers
+    headers = {"Accept": "application/json"}
+    headers = add_api_key_to_headers(headers)
     
     try:
-        # Get blob sidecars
+        # First, get all blob sidecars for the block
         response = requests.get(
-            f"{beacon_url}{endpoint}",
-            headers={"Accept": "application/json"},
-            timeout=5  # 5 second timeout
+            join_url(beacon_url, f"/eth/v1/beacon/blob_sidecars/{block_id}"),
+            headers=headers,
+            timeout=15
         )
         
-        response.raise_for_status()  # Raise exception for non-200 responses
-        
-        json_data = response.json()
-        blobs = json_data.get('data', [])
+        response.raise_for_status()
+        data = response.json()
+        blobs = data.get('data', [])
         
         # Process blob data
         result = {
@@ -449,6 +550,7 @@ def get_blob_sidecars(block_id):
         
         # Handle 404 gracefully - some blocks may not have blob sidecars
         if e.response.status_code == 404:
+            print(f"Block {block_id} has no blob sidecars (404 response) - this is normal for blocks without blobs")
             result = {
                 'count': 0,
                 'blobs': [],
@@ -456,6 +558,11 @@ def get_blob_sidecars(block_id):
                 'total_compressed_size': 0,
                 'avg_compression_ratio': 0
             }
+            
+            # Cache the empty result
+            if block_id != 'head':
+                blob_cache[block_id] = result
+                
             return result
             
         raise Exception(f"Beacon node API returned an error: {str(e)}")
@@ -504,68 +611,40 @@ def get_blobs_range(start_slot, end_slot):
 
 def get_excess_blob_gas(block_id):
     """
-    Fetch excess blob gas for a specific block and calculate the blob base fee.
+    Get excess blob gas and calculate blob base fee for a specific block.
     
     Args:
-        block_id: Can be 'head', a slot number, or a block root hash
+        block_id: Block identifier (slot number, 'head', or block root hash)
     
     Returns:
-        Dict with excess blob gas and calculated blob base fee in Gwei
+        Dict with excess blob gas and blob base fee
     """
-    # Constants for blob base fee calculation
-    MAX_BLOB_GAS_PER_BLOCK = 786432
-    TARGET_BLOB_GAS_PER_BLOCK = 393216
-    MIN_BASE_FEE_PER_BLOB_GAS = 1
-    BLOB_BASE_FEE_UPDATE_FRACTION = 3338477
+    # Check cache first, but skip cache for 'head' requests to ensure we always get fresh data
+    if block_id != 'head' and block_id in blob_fee_cache:
+        return blob_fee_cache[block_id]
     
     beacon_url = current_app.config['BEACON_NODE_URL']
     
-    try:
-        # Get JSON data with timeout
+    # Setup headers
+    headers = {"Accept": "application/json"}
+    headers = add_api_key_to_headers(headers)
+    
+    # Set up retry parameters
+    max_retries = 2
+    retry_count = 0
+    last_error = None
+    
+    while retry_count <= max_retries:
+        try:
+            # Get block data
         response = requests.get(
-            f"{beacon_url}/eth/v1/beacon/blocks/{block_id}",
-            headers={"Accept": "application/json"},
-            timeout=5  # 5 second timeout
-        )
-        
-        response.raise_for_status()  # Raise exception for non-200 responses
-        
-        data = response.json()
-        
-        # Mock data for testing without a real beacon node or when in mock mode
-        if shouldUseMockData():
-            import random
-            import math
+                join_url(beacon_url, f"/eth/v2/beacon/blocks/{block_id}"),
+                headers=headers,
+                timeout=15
+            )
             
-            # Use deterministic but varying values based on block_id if it's a number
-            if block_id.isdigit():
-                # Use the block number to generate a pseudo-random but consistent value
-                slot_num = int(block_id)
-                # Create a wave pattern that varies with the slot number
-                wave_position = slot_num % 12  # Create repeating pattern
-                base_excess_gas = 200000 + 100000 * math.sin(wave_position * math.pi / 6)
-                excess_blob_gas = int(base_excess_gas + ((slot_num % 50000) / 50000) * 400000)
-                # Ensure within valid range
-                excess_blob_gas = max(0, min(excess_blob_gas, MAX_BLOB_GAS_PER_BLOCK))
-            else:
-                # For non-numeric IDs, use random value
-                excess_blob_gas = random.randint(0, MAX_BLOB_GAS_PER_BLOCK)
-                
-            # Calculate blob base fee in wei
-            blob_base_fee_wei = MIN_BASE_FEE_PER_BLOB_GAS * math.exp(excess_blob_gas / BLOB_BASE_FEE_UPDATE_FRACTION)
-            # Convert to Gwei and round to integer
-            blob_base_fee_gwei = round(blob_base_fee_wei / 1e9)
-            
-            # Ensure the values are non-zero
-            if blob_base_fee_gwei == 0 and excess_blob_gas > 0:
-                # If the calculation rounds to zero, use a minimum value
-                blob_base_fee_gwei = 1
-            
-            return {
-                'slot': int(block_id) if block_id.isdigit() else 12345,
-                'excess_blob_gas': excess_blob_gas,
-                'blob_base_fee': blob_base_fee_gwei
-            }
+            response.raise_for_status()
+            data = response.json()
         
         # Extract excess_blob_gas from execution payload
         try:
@@ -574,7 +653,7 @@ def get_excess_blob_gas(block_id):
             print(f"Error accessing excess_blob_gas in response structure: {str(e)}")
             # If we can't find excess_blob_gas in the expected location, search for it elsewhere
             # in the response or use a fallback value
-            excess_blob_gas = search_for_excess_blob_gas(data) or TARGET_BLOB_GAS_PER_BLOCK
+                excess_blob_gas = TARGET_BLOB_GAS_PER_BLOCK
         
         # Calculate blob base fee
         import math
@@ -588,57 +667,40 @@ def get_excess_blob_gas(block_id):
             # If the calculation rounds to zero, use a minimum value
             blob_base_fee_gwei = 1
         
-        return {
+            result = {
             'slot': int(data['data']['message']['slot']),
             'excess_blob_gas': excess_blob_gas,
             'blob_base_fee': blob_base_fee_gwei
         }
         
+            # Cache the result
+            if block_id != 'head':
+                blob_fee_cache[block_id] = result
+                
+            return result
+            
     except requests.exceptions.Timeout:
-        print(f"Timeout fetching excess blob gas for block {block_id} from beacon node")
-        raise
+            retry_count += 1
+            last_error = f"Timeout fetching excess blob gas for block {block_id} from beacon node (attempt {retry_count}/{max_retries+1})"
+            print(last_error)
+            
+            if retry_count <= max_retries:
+                print(f"Retrying... ({retry_count}/{max_retries})")
+                time.sleep(get_backoff_time(retry_count))
+            else:
+                # Return a default result for timeout cases
+                print(f"All retries failed, returning default blob fee data for block {block_id}")
+                result = {
+                    'slot': int(block_id) if block_id.isdigit() else 0,
+                    'excess_blob_gas': TARGET_BLOB_GAS_PER_BLOCK,  # Use target as default
+                    'blob_base_fee': 1,  # Minimum blob base fee
+                    'timeout': True  # Indicate this is a fallback
+                }
+                return result
+                
     except Exception as e:
         print(f"Error fetching excess blob gas for block {block_id}: {str(e)}")
         raise
-
-def search_for_excess_blob_gas(data):
-    """
-    Search for excess_blob_gas in the response data structure.
-    Different beacon node implementations might have it in different locations.
-    
-    Args:
-        data: The JSON response data
-        
-    Returns:
-        excess_blob_gas value if found, otherwise None
-    """
-    # Try different potential locations based on different beacon node implementations
-    try:
-        # Location for some implementations
-        return int(data['data']['message']['body']['execution_payload']['excess_blob_gas'])
-    except (KeyError, TypeError):
-        pass
-    
-    try:
-        # Alternative location
-        return int(data['data']['body']['execution_payload']['excess_blob_gas'])
-    except (KeyError, TypeError):
-        pass
-        
-    try:
-        # Another possibility
-        return int(data['message']['body']['execution_payload']['excess_blob_gas'])
-    except (KeyError, TypeError):
-        pass
-    
-    return None
-
-def shouldUseMockData():
-    """Check if we should use mock data"""
-    # Check configuration from Flask app
-    if hasattr(current_app, 'config') and 'USE_MOCK_DATA' in current_app.config:
-        return current_app.config['USE_MOCK_DATA']
-    return False
 
 def get_blob_fees_range(start_slot, end_slot):
     """
@@ -658,11 +720,11 @@ def get_blob_fees_range(start_slot, end_slot):
             results.append(fee_data)
         except Exception as e:
             print(f"Error fetching blob fees at slot {slot}: {str(e)}")
-            # Create a placeholder with only the slot number
+            # Create a placeholder with only the slot number and error information
             placeholder = {
                 'slot': slot,
-                'excess_blob_gas': 0,
-                'blob_base_fee': 0,
+                'excess_blob_gas': None,
+                'blob_base_fee': None,
                 'error': str(e)
             }
             results.append(placeholder)

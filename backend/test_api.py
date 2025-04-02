@@ -1,79 +1,159 @@
 #!/usr/bin/env python3
+"""
+Test script for API endpoints
+"""
+
 import requests
-import json
-import math
+import sys
+import os
+import argparse
+from dotenv import load_dotenv
 
-# Test the blob base fee calculation
-def test_blob_fee_calculation():
-    # Constants from the standard
-    MAX_BLOB_GAS_PER_BLOCK = 786432
-    TARGET_BLOB_GAS_PER_BLOCK = 393216
-    MIN_BASE_FEE_PER_BLOB_GAS = 1
-    BLOB_BASE_FEE_UPDATE_FRACTION = 3338477
-    
-    # Test different excess_blob_gas values
-    test_values = [0, 100000, 200000, 300000, 400000, 500000, 600000, 700000]
-    
-    print("\n===== Blob Base Fee Calculation Test =====")
-    print(f"{'Excess Blob Gas':<15} | {'Base Fee (wei)':<20} | {'Base Fee (Gwei)':<20}")
-    print("-" * 60)
-    
-    for excess_blob_gas in test_values:
-        # Calculate base fee in wei
-        base_fee_wei = MIN_BASE_FEE_PER_BLOB_GAS * math.exp(excess_blob_gas / BLOB_BASE_FEE_UPDATE_FRACTION)
-        # Convert to Gwei
-        base_fee_gwei = base_fee_wei / 1e9
-        # Integer version (rounded)
-        base_fee_gwei_int = round(base_fee_wei / 1e9)
-        
-        print(f"{excess_blob_gas:<15} | {base_fee_wei:<20.6f} | {base_fee_gwei:<10.6f} ({base_fee_gwei_int} as int)")
+# Load environment variables
+load_dotenv()
 
-# Test the API endpoint
-def test_api(base_url="http://localhost:5000/api"):
+def parse_args():
+    parser = argparse.ArgumentParser(description='Test API endpoints')
+    parser.add_argument('--use-local', action='store_true', help='Use local endpoints (localhost:5052 for beacon, localhost:8585 for execution)')
+    return parser.parse_args()
+
+# Parse command line arguments
+args = parse_args()
+
+# Configuration
+API_BASE_URL = "http://localhost:5000/api"  # Use local API server
+
+# Use local endpoints if --use-local flag is provided
+if args.use_local:
+    BEACON_NODE_URL = 'http://localhost:5052/'
+    EXECUTION_NODE_URL = 'http://localhost:8585/'
+    API_KEY = None
+    print("Using local endpoints")
+else:
+    BEACON_NODE_URL = os.getenv('BEACON_NODE_URL', 'https://node.toniwahrstaetter.dev/beacon/')
+    EXECUTION_NODE_URL = os.getenv('EXECUTION_NODE_URL', 'https://node.toniwahrstaetter.dev/execution/')
+    API_KEY = os.getenv('X_API_KEY', 'bae-gandalf-aurach')
+
+# Set up headers
+headers = {
+    "Content-Type": "application/json"
+}
+if API_KEY:
+    headers["X-API-Key"] = API_KEY
+
+def test_endpoint(endpoint_url, method="GET", params=None, expected_status=200):
+    """Test an API endpoint and return whether it succeeded"""
+    print(f"Testing {method} {endpoint_url}")
     try:
-        # Test the health endpoint first
-        resp = requests.get(f"{base_url.rstrip('/').split('/api')[0]}/health", timeout=2)
-        if resp.status_code == 200:
-            print(f"\n✅ Health check succeeded: {resp.text}")
+        if method == "GET":
+            response = requests.get(endpoint_url, params=params, headers=headers, timeout=20)
         else:
-            print(f"\n❌ Health check failed with status {resp.status_code}")
-            
-        # Test the blob-fee endpoint with mock data
-        try:
-            resp = requests.get(f"{base_url}/blob-fee/12345", timeout=2)
-            if resp.status_code == 200:
-                data = resp.json()
-                print(f"\n✅ Blob fee endpoint working")
-                print(f"   Slot: {data.get('slot')}")
-                print(f"   Excess blob gas: {data.get('excess_blob_gas')}")
-                print(f"   Blob base fee: {data.get('blob_base_fee')} Gwei")
-            else:
-                print(f"\n❌ Blob fee endpoint failed with status {resp.status_code}")
-        except Exception as e:
-            print(f"\n❌ Error accessing blob fee endpoint: {str(e)}")
-            
-        # Test the blob-fees endpoint with mock data
-        try:
-            resp = requests.get(f"{base_url}/blob-fees?start=12345&end=12347", timeout=2)
-            if resp.status_code == 200:
-                data = resp.json()
-                print(f"\n✅ Blob fees range endpoint working, returned {len(data)} items")
-                for item in data[:2]:  # Show first 2 items
-                    print(f"   Slot: {item.get('slot')}, Base fee: {item.get('blob_base_fee')} Gwei")
-            else:
-                print(f"\n❌ Blob fees range endpoint failed with status {resp.status_code}")
-        except Exception as e:
-            print(f"\n❌ Error accessing blob fees range endpoint: {str(e)}")
-    
+            response = requests.post(endpoint_url, json=params, headers=headers, timeout=20)
+        
+        if response.status_code == expected_status:
+            print(f"✅ Success ({response.status_code})")
+            # Print a sample of the response
+            if response.headers.get('content-type', '').startswith('application/json'):
+                try:
+                    print(f"Sample response: {str(response.json())[:200]}...")
+                except:
+                    print(f"Response is not JSON decodable: {response.text[:100]}...")
+            return True
+        else:
+            print(f"❌ Failed with status code: {response.status_code}")
+            print(f"Response: {response.text[:200]}")
+            return False
     except Exception as e:
-        print(f"\n❌ API test failed: {str(e)}")
+        print(f"❌ Error: {str(e)}")
+        return False
+
+def test_direct_node_access():
+    """Test direct access to the beacon and execution nodes"""
+    print("\nTesting direct access to nodes:")
+    print("-" * 50)
+    
+    # Test beacon node
+    beacon_success = test_endpoint(f"{BEACON_NODE_URL}eth/v1/node/identity")
+    
+    # Test execution node
+    exec_headers = {
+        "Content-Type": "application/json"
+    }
+    if API_KEY:
+        exec_headers["X-API-Key"] = API_KEY
+        
+    try:
+        exec_response = requests.post(
+            EXECUTION_NODE_URL,
+            json={"jsonrpc": "2.0", "method": "eth_syncing", "params": [], "id": 1},
+            headers=exec_headers,
+            timeout=10
+        )
+        if exec_response.status_code == 200:
+            print(f"✅ Execution node success ({exec_response.status_code})")
+            print(f"Sample response: {exec_response.text[:200]}...")
+            exec_success = True
+        else:
+            print(f"❌ Execution node failed with status code: {exec_response.status_code}")
+            print(f"Response: {exec_response.text[:200]}")
+            exec_success = False
+    except Exception as e:
+        print(f"❌ Execution node error: {str(e)}")
+        exec_success = False
+        
+    return beacon_success, exec_success
+
+def main():
+    """Run the tests"""
+    print(f"Testing API endpoints at {API_BASE_URL}")
+    print(f"Using Beacon Node: {BEACON_NODE_URL}")
+    print(f"Using Execution Node: {EXECUTION_NODE_URL}")
+    print(f"API Key: {'Configured' if API_KEY else 'Not configured'}")
+    print(f"Endpoint Type: {'Local' if args.use_local else 'Remote (Cloudflare)'}")
+    print("=" * 50)
+    
+    # Test direct node access first
+    beacon_direct, exec_direct = test_direct_node_access()
+    
+    # Test API health endpoint
+    health_success = test_endpoint("http://localhost:5000/health")
+    
+    # Define endpoints to test
+    endpoints = [
+        ("/latest", "GET", None),
+        ("/block/head", "GET", None),
+        ("/blocks", "GET", {"start": 11374540, "end": 11374545}),
+        ("/blob/head", "GET", None),
+        ("/blobs", "GET", {"start": 11374540, "end": 11374545}),
+        ("/blob-fee/head", "GET", None),
+        ("/blob-fees", "GET", {"start": 11374540, "end": 11374545})
+    ]
+    
+    # Test all endpoints
+    results = []
+    for endpoint, method, params in endpoints:
+        url = f"{API_BASE_URL}{endpoint}"
+        success = test_endpoint(url, method, params)
+        results.append((endpoint, success))
+    
+    # Print summary
+    print("\nSummary:")
+    print("=" * 50)
+    print(f"Direct Beacon Node access: {'✅ Success' if beacon_direct else '❌ Failed'}")
+    print(f"Direct Execution Node access: {'✅ Success' if exec_direct else '❌ Failed'}")
+    print(f"Health endpoint: {'✅ Success' if health_success else '❌ Failed'}")
+    
+    all_success = health_success
+    for endpoint, success in results:
+        print(f"{endpoint}: {'✅ Success' if success else '❌ Failed'}")
+        all_success = all_success and success
+    
+    if all_success:
+        print("\nAll endpoints are working! ✅")
+        return 0
+    else:
+        print("\nSome endpoints failed! ❌")
+        return 1
 
 if __name__ == "__main__":
-    # Test the calculation first
-    test_blob_fee_calculation()
-    
-    # Then test the API
-    print("\n\n===== Testing API =====")
-    test_api()
-    
-    print("\nTests complete!") 
+    sys.exit(main()) 

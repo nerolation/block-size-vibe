@@ -18,25 +18,6 @@ import Tabs from './components/Tabs';
 // Auto-refresh interval in milliseconds (12 seconds)
 const AUTO_REFRESH_INTERVAL = 12000;
 
-// Helper to force mock data mode if the backend is not available
-const forceMockDataMode = () => {
-  if (typeof window !== 'undefined') {
-    // Check if we already have the mock parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    
-    if (!urlParams.has('mock')) {
-      // Add mock parameter to URL if not present
-      urlParams.append('mock', 'true');
-      
-      // Update URL without refreshing the page
-      const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
-      window.history.pushState({ path: newUrl }, '', newUrl);
-      
-      console.log('Switched to mock data mode');
-    }
-  }
-};
-
 export default function Home() {
   const [range, setRange] = useState<{ start: number; end: number } | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -167,14 +148,6 @@ export default function Home() {
     blobsQuery.isError ||
     blobFeesQuery.isError;
 
-  // Check for backend connectivity and switch to mock mode if needed
-  useEffect(() => {
-    // If there's an error fetching data, force mock data mode
-    if (latestBlockQuery.isError || blocksQuery.isError || blobsQuery.isError || blobFeesQuery.isError) {
-      forceMockDataMode();
-    }
-  }, [latestBlockQuery.isError, blocksQuery.isError, blobsQuery.isError, blobFeesQuery.isError]);
-
   const handleRangeChange = (newRange: { start: number; end: number }) => {
     startTransition(() => {
       setRange(newRange);
@@ -241,10 +214,25 @@ export default function Home() {
       {isError && (
         <div className="text-center mt-12 text-red-500">
           <p className="text-xl mb-2">Error loading block data</p>
-          <p className="mb-4">Please check your connection to the beacon node.</p>
+          <p className="mb-4">
+            There was an error connecting to the Ethereum nodes. This may be due to network issues or the node might be busy.
+          </p>
+          <p className="text-sm text-slate-400 mb-2">
+            Error details:
+          </p>
+          <div className="bg-slate-900 p-4 rounded-lg max-w-2xl mx-auto text-left text-sm text-slate-300 mb-4 overflow-auto">
+            {latestBlockQuery.error ? (
+              <pre>{JSON.stringify(latestBlockQuery.error, null, 2)}</pre>
+            ) : blocksQuery.error ? (
+              <pre>{JSON.stringify(blocksQuery.error, null, 2)}</pre>
+            ) : blobsQuery.error ? (
+              <pre>{JSON.stringify(blobsQuery.error, null, 2)}</pre>
+            ) : (
+              <pre>{JSON.stringify(blobFeesQuery.error, null, 2)}</pre>
+            )}
+          </div>
           <p className="text-sm text-slate-400">
-            Make sure an Ethereum beacon node is running at the URL configured in your backend .env file 
-            (default: http://localhost:5052). You may need to start a beacon node or update the URL.
+            Please check the node configuration or try again later when the node is less busy.
           </p>
         </div>
       )}

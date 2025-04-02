@@ -1,6 +1,5 @@
 import React from 'react';
 import { Block } from '../api/blockService';
-import { Badge } from './ui/badge';
 
 // Helper function to format timestamp as date string
 const formatTimestamp = (timestamp: number): string => {
@@ -20,11 +19,6 @@ const Header: React.FC<HeaderProps> = ({
   latestBlock,
   isUpdating
 }) => {
-  // Check if we're using mock data
-  const isMockDataMode = typeof window !== 'undefined' && 
-    (new URLSearchParams(window.location.search).has('mock') || 
-    parseInt(sessionStorage.getItem('api_failure_count') || '0') > 3);
-
   return (
     <header className="bg-slate-800 p-4 rounded-lg shadow-lg flex flex-col md:flex-row md:items-center justify-between">
       <div className="mb-4 md:mb-0">
@@ -49,12 +43,6 @@ const Header: React.FC<HeaderProps> = ({
               {formatTimestamp(latestBlock.timestamp)}
             </p>
           </div>
-        )}
-        
-        {isMockDataMode && (
-          <Badge variant="outline" className="bg-amber-900/40 text-amber-300 border-amber-800">
-            Mock Data Mode
-          </Badge>
         )}
         
         <button 

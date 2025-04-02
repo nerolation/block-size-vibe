@@ -13,6 +13,11 @@ def block(block_id):
     try:
         block_data = get_block(block_id)
         return jsonify(block_data)
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request to Ethereum node timed out. The node might be busy or experiencing network issues.',
+            'detail': f'Timed out while requesting block data for {block_id}'
+        }), 504  # Gateway Timeout
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -31,6 +36,11 @@ def blocks():
             
         blocks_data = get_blocks_range(start_slot, end_slot)
         return jsonify(blocks_data)
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request to Ethereum node timed out. The node might be busy or experiencing network issues.',
+            'detail': f'Timed out while requesting blocks data from {start_slot} to {end_slot}'
+        }), 504  # Gateway Timeout
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -40,6 +50,11 @@ def latest():
     try:
         block_data = get_block('head')
         return jsonify(block_data)
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request to Ethereum node timed out. The node might be busy or experiencing network issues.',
+            'detail': 'Timed out while requesting latest block data'
+        }), 504  # Gateway Timeout
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -49,6 +64,11 @@ def blob(block_id):
     try:
         blob_data = get_blob_sidecars(block_id)
         return jsonify(blob_data)
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request to Ethereum node timed out. The node might be busy or experiencing network issues.',
+            'detail': f'Timed out while requesting blob data for {block_id}'
+        }), 504  # Gateway Timeout
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -67,6 +87,11 @@ def blobs():
             
         blobs_data = get_blobs_range(start_slot, end_slot)
         return jsonify(blobs_data)
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request to Ethereum node timed out. The node might be busy or experiencing network issues.',
+            'detail': f'Timed out while requesting blobs data from {start_slot} to {end_slot}'
+        }), 504  # Gateway Timeout
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -76,6 +101,11 @@ def blob_fee(block_id):
     try:
         fee_data = get_excess_blob_gas(block_id)
         return jsonify(fee_data)
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request to Ethereum node timed out. The node might be busy or experiencing network issues.',
+            'detail': f'Timed out while requesting blob fee data for {block_id}'
+        }), 504  # Gateway Timeout
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -94,5 +124,10 @@ def blob_fees():
             
         fees_data = get_blob_fees_range(start_slot, end_slot)
         return jsonify(fees_data)
+    except requests.exceptions.Timeout:
+        return jsonify({
+            'error': 'Request to Ethereum node timed out. The node might be busy or experiencing network issues.',
+            'detail': f'Timed out while requesting blob fees data from {start_slot} to {end_slot}'
+        }), 504  # Gateway Timeout
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
