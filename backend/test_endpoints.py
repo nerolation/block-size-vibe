@@ -85,9 +85,9 @@ def main():
     # Load environment variables
     load_dotenv()
     
-    # Use command line arguments, environment variables, or default values
-    beacon_url = args.beacon_url or os.getenv('BEACON_NODE_URL', 'https://node.toniwahrstaetter.dev/beacon/')
-    execution_url = args.execution_url or os.getenv('EXECUTION_NODE_URL', 'https://node.toniwahrstaetter.dev/execution/')
+    # Get URLs from arguments or environment variables with fallbacks
+    beacon_url = args.beacon_url or os.getenv('BEACON_NODE_URL', 'https://example.com/beacon/')
+    execution_url = args.execution_url or os.getenv('EXECUTION_NODE_URL', 'https://example.com/execution/')
     api_key = args.api_key or os.getenv('X_API_KEY')
     
     print("=== Testing Ethereum API Endpoints ===")

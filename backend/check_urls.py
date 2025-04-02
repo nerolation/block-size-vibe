@@ -37,9 +37,9 @@ def main():
     beacon_url = args.beacon_url or os.getenv('BEACON_NODE_URL')
     execution_url = args.execution_url or os.getenv('EXECUTION_NODE_URL')
     
-    # Default URLs
-    default_beacon_url = 'https://node.toniwahrstaetter.dev/beacon/'
-    default_execution_url = 'https://node.toniwahrstaetter.dev/execution/'
+    # Set default values
+    default_beacon_url = 'https://example.com/beacon/'
+    default_execution_url = 'https://example.com/execution/'
     
     # Check and fix beacon URL
     if not beacon_url:

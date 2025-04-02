@@ -30,9 +30,9 @@ if args.use_local:
     API_KEY = None
     print("Using local endpoints")
 else:
-    BEACON_NODE_URL = os.getenv('BEACON_NODE_URL', 'https://node.toniwahrstaetter.dev/beacon/')
-    EXECUTION_NODE_URL = os.getenv('EXECUTION_NODE_URL', 'https://node.toniwahrstaetter.dev/execution/')
-    API_KEY = os.getenv('X_API_KEY', 'bae-gandalf-aurach')
+    BEACON_NODE_URL = os.getenv('BEACON_NODE_URL', 'https://example.com/beacon/')
+    EXECUTION_NODE_URL = os.getenv('EXECUTION_NODE_URL', 'https://example.com/execution/')
+    API_KEY = os.getenv('X_API_KEY')
 
 # Set up headers
 headers = {

@@ -16,8 +16,8 @@ def create_app(test_config=None):
     # Configure the app
     app.config.from_mapping(
         SECRET_KEY=os.getenv('SECRET_KEY', 'dev-key-change-this'),
-        BEACON_NODE_URL=os.getenv('BEACON_NODE_URL', 'https://node.toniwahrstaetter.dev/beacon/'),
-        EXECUTION_NODE_URL=os.getenv('EXECUTION_NODE_URL', 'https://node.toniwahrstaetter.dev/execution/'),
+        BEACON_NODE_URL=os.getenv('BEACON_NODE_URL', 'https://example.com/beacon/'),
+        EXECUTION_NODE_URL=os.getenv('EXECUTION_NODE_URL', 'https://example.com/execution/'),
         X_API_KEY=os.getenv('X_API_KEY')
     )
     
