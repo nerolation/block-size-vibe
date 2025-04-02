@@ -32,7 +32,7 @@ if args.use_local:
 else:
     BEACON_NODE_URL = os.getenv('BEACON_NODE_URL', 'https://example.com/beacon/')
     EXECUTION_NODE_URL = os.getenv('EXECUTION_NODE_URL', 'https://example.com/execution/')
-    API_KEY = os.getenv('X_API_KEY')
+    API_KEY = os.getenv('X_API_KEY', 'default-example-api-key-for-development')
 
 # Set up headers
 headers = {

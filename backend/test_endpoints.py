@@ -88,7 +88,7 @@ def main():
     # Get URLs from arguments or environment variables with fallbacks
     beacon_url = args.beacon_url or os.getenv('BEACON_NODE_URL', 'https://example.com/beacon/')
     execution_url = args.execution_url or os.getenv('EXECUTION_NODE_URL', 'https://example.com/execution/')
-    api_key = args.api_key or os.getenv('X_API_KEY')
+    api_key = args.api_key or os.getenv('X_API_KEY', 'default-example-api-key-for-development')
     
     print("=== Testing Ethereum API Endpoints ===")
     print(f"Beacon URL: {beacon_url}")

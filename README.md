@@ -44,6 +44,8 @@ The `local-dev.sh` script handles everything for you:
 - Configures the application to use standard local node endpoints
 - Automatically manages process cleanup on exit
 
+> **Note:** A default API key is provided for development purposes. If you're connecting to remote endpoints that require authentication, you should set your own API key in the `.env` file.
+
 ## Alternative Scripts
 
 Besides the recommended `local-dev.sh`, there are other scripts available:
@@ -143,7 +145,7 @@ The application requires access to an Ethereum Beacon Chain node and Execution n
 Update the following in the `.env` file if using remote nodes:
 - `BEACON_NODE_URL`: Your beacon node's HTTP API endpoint
 - `EXECUTION_NODE_URL`: Your execution node's JSON-RPC endpoint
-- `X_API_KEY`: API key if required by your node
+- `X_API_KEY`: Your API key if required by your node (a default development key is provided)
 
 ### Common Endpoints for Beacon Nodes:
 
