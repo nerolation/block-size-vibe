@@ -34,12 +34,36 @@ if ! command -v $PYTHON_CMD &> /dev/null; then
   fi
 fi
 
+# Check and set up backend environment if needed
+echo "Checking backend environment..."
+cd backend
+if [ ! -d "venv" ]; then
+  echo "Creating Python virtual environment..."
+  $PYTHON_CMD -m venv venv
+  if [ $? -ne 0 ]; then
+    echo "Failed to create virtual environment. Please check Python installation or create it manually."
+    echo "See README.md for manual setup instructions."
+    exit 1
+  fi
+fi
+
+# Activate the virtual environment
+echo "Activating virtual environment..."
+source venv/bin/activate
+
+# Check if requirements are installed
+if [ ! -f "venv/pyvenv.cfg" ] || ! pip freeze | grep -q "Flask"; then
+  echo "Installing backend dependencies..."
+  pip install -r requirements.txt
+  if [ $? -ne 0 ]; then
+    echo "Failed to install backend dependencies. See README.md for manual setup instructions."
+    exit 1
+  fi
+fi
+
 # Start the backend with local endpoints
 echo "Starting backend with local endpoints..."
-cd backend
-# Activate the virtual environment
-source venv/bin/activate
-$PYTHON_CMD app.py --use-local &
+python app.py --use-local &
 BACKEND_PID=$!
 cd ..
 
@@ -51,15 +75,22 @@ if ! curl -s http://localhost:5000/health > /dev/null; then
   echo "Warning: Backend doesn't seem to be running correctly. Check for errors."
 fi
 
+# Check and set up frontend if needed
+echo "Checking frontend environment..."
+cd frontend
+if [ ! -d "node_modules" ]; then
+  echo "Installing frontend dependencies (this may take a minute)..."
+  npm install --legacy-peer-deps
+  if [ $? -ne 0 ]; then
+    echo "Failed to install frontend dependencies. See README.md for manual setup instructions."
+    exit 1
+  fi
+fi
+
 # Start the frontend
 echo "Starting frontend..."
-cd frontend
-if [ -d "node_modules" ]; then
-  npm run dev &
-  FRONTEND_PID=$!
-else
-  echo "Warning: Frontend dependencies not installed. Run 'cd frontend && npm install' first."
-fi
+npm run dev &
+FRONTEND_PID=$!
 cd ..
 
 echo "Application is running!"

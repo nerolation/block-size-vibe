@@ -36,6 +36,8 @@ The easiest and recommended way to run the application locally:
    ./local-dev.sh
    ```
 
+   If the script reports issues with dependencies, you may need to manually set up the environment first (see Manual Setup below).
+
 4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 The `local-dev.sh` script handles everything for you:
@@ -46,18 +48,9 @@ The `local-dev.sh` script handles everything for you:
 
 > **Note:** A default API key is provided for development purposes. If you're connecting to remote endpoints that require authentication, you should set your own API key in the `.env` file.
 
-## Alternative Scripts
-
-Besides the recommended `local-dev.sh`, there are other scripts available:
-
-- `run-with-correct-port.sh`: Similar to local-dev.sh but explicitly sets the Beacon and Execution node ports
-- `dev.sh`: Legacy script that may require additional configuration
-
-We recommend using `local-dev.sh` for the most straightforward setup.
-
 ## Manual Setup
 
-If you prefer to set up components manually, follow these steps:
+If the quick start doesn't work or you prefer to set up components manually, follow these steps:
 
 ### Backend
 
@@ -68,8 +61,10 @@ If you prefer to set up components manually, follow these steps:
 
 2. Create a virtual environment:
    ```
-   python -m venv venv
+   python3 -m venv venv
    ```
+
+   Note: If you have Python managed by pyenv or another version manager, ensure you use the correct Python version.
 
 3. Activate the virtual environment:
    ```
@@ -108,8 +103,10 @@ If you prefer to set up components manually, follow these steps:
 
 2. Install dependencies:
    ```
-   npm install
+   npm install --legacy-peer-deps
    ```
+
+   Note: The `--legacy-peer-deps` flag may be necessary due to some dependency conflicts.
 
 3. Run the development server:
    ```
@@ -154,7 +151,11 @@ Update the following in the `.env` file if using remote nodes:
 - Nimbus: `http://localhost:5052`
 - Teku: `http://localhost:5051`
 
-## Troubleshooting
+## Common Troubleshooting
+
+### Node.js Version Issues
+
+If you encounter errors during npm install, make sure you're using a compatible Node.js version. This project has been tested with Node.js v18 and later.
 
 ### SSZ Import Error
 

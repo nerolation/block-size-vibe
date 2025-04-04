@@ -46,6 +46,11 @@ next-env.d.ts
 **/.pytest_cache/
 /backend/data/
 
+# Test data
+attestations_*.txt
+*_test_data.json
+*_sample_data.json
+
 # Other
 .vscode/
 /block-size/
