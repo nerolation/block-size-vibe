@@ -197,7 +197,7 @@ If the backend can't connect to the beacon node:
 
 ## Docker Deployment
 
-You can run the application using Docker and Docker Compose:
+You can run the application using Docker and Docker Compose with either local or external Ethereum nodes.
 
 ### Prerequisites
 
@@ -217,31 +217,66 @@ You can run the application using Docker and Docker Compose:
    cp .env.example .env
    ```
 
-3. Edit the `.env` file to configure your Ethereum node endpoints and API keys.
+### Option 1: Using Local Ethereum Nodes (Recommended for Development)
 
-### Using External Endpoints
+If you have local Ethereum nodes running (like Lighthouse, Prysm, or Nimbus):
 
-To use external endpoints instead of local nodes:
+1. Make sure your nodes are running and accessible at their default ports:
+   - Beacon Node: http://localhost:5052 (Lighthouse/Nimbus) or http://localhost:3500 (Prysm)
+   - Execution Node: http://localhost:8545
 
-1. Set up your environment with the external endpoints:
+2. Run the application with Docker:
    ```bash
-   # Edit the .env file
+   ./docker-run.sh
+   ```
+   or manually:
+   ```bash
+   docker-compose up
+   ```
+
+3. When prompted if you want to rebuild (if using docker-run.sh), choose "y" for the first run or after code changes.
+
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+The application will automatically connect to your local nodes.
+
+### Option 2: Using External Ethereum Nodes
+
+For using remote/external Ethereum node endpoints:
+
+1. Edit the `.env` file with your external endpoints:
+   ```
    BEACON_NODE_URL=https://your-beacon-node-endpoint
    EXECUTION_NODE_URL=https://your-execution-node-endpoint
    X_API_KEY=your-api-key-if-required
    ```
 
-2. Or use the provided script for external endpoints:
+2. Use the provided script for a guided setup:
    ```bash
    chmod +x run-with-external-endpoints.sh
    ./run-with-external-endpoints.sh
    ```
-   
+   This script will update your `.env` file and configure Docker to use your external endpoints.
+
    > **SECURITY NOTE:** Never commit API keys, usernames, or passwords to version control.
-   > The script contains placeholder URLs that you should replace with your own endpoints.
    > Always use environment variables or a properly gitignored .env file for sensitive credentials.
 
-### Running with Docker Compose
+3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Testing Docker Setup
+
+To quickly test if your Docker configuration works with your endpoints:
+
+```bash
+chmod +x test-docker.sh
+./test-docker.sh
+```
+
+This will start the containers with the configured endpoints and display diagnostic information.
+
+### Docker Commands Reference
+
+#### Running the Application
 
 Start both the backend and frontend:
 
@@ -249,7 +284,7 @@ Start both the backend and frontend:
 docker-compose up
 ```
 
-Or run in detached mode:
+Or run in detached mode (runs in the background):
 
 ```bash
 docker-compose up -d
@@ -259,7 +294,7 @@ The services will be available at:
 - Backend API: http://localhost:5000
 - Frontend: http://localhost:3000
 
-### Rebuilding the Images
+#### Rebuilding the Images
 
 If you make changes to the code, rebuild the images:
 
@@ -267,8 +302,31 @@ If you make changes to the code, rebuild the images:
 docker-compose up --build
 ```
 
-### Stopping the Services
+#### Stopping the Services
 
 ```bash
 docker-compose down
 ```
+
+#### Troubleshooting Docker
+
+If you encounter issues with Docker:
+
+1. Check Docker logs:
+   ```bash
+   docker-compose logs
+   ```
+
+2. Ensure your nodes are accessible from Docker:
+   - For local nodes, you may need to use `host.docker.internal` instead of `localhost` in your `.env` file
+   - Example: `BEACON_NODE_URL=http://host.docker.internal:5052/`
+
+3. If Docker fails to start with permission errors:
+   ```bash
+   sudo docker-compose up
+   ```
+   Or add your user to the docker group:
+   ```bash
+   sudo usermod -aG docker $USER
+   ```
+   (Log out and back in for this to take effect)
