@@ -193,4 +193,82 @@ If the backend can't connect to the beacon node:
 - REST API for beacon block data
 - Fetches data from Ethereum beacon node
 - Computes size metrics (SSZ, snappy compression)
-- Component breakdown by size 
+- Component breakdown by size
+
+## Docker Deployment
+
+You can run the application using Docker and Docker Compose:
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Setup
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd <repository-directory>
+   ```
+
+2. Create a `.env` file from the example:
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Edit the `.env` file to configure your Ethereum node endpoints and API keys.
+
+### Using External Endpoints
+
+To use external endpoints instead of local nodes:
+
+1. Set up your environment with the external endpoints:
+   ```bash
+   # Edit the .env file
+   BEACON_NODE_URL=https://your-beacon-node-endpoint
+   EXECUTION_NODE_URL=https://your-execution-node-endpoint
+   X_API_KEY=your-api-key-if-required
+   ```
+
+2. Or use the provided script for external endpoints:
+   ```bash
+   chmod +x run-with-external-endpoints.sh
+   ./run-with-external-endpoints.sh
+   ```
+   
+   > **SECURITY NOTE:** Never commit API keys, usernames, or passwords to version control.
+   > The script contains placeholder URLs that you should replace with your own endpoints.
+   > Always use environment variables or a properly gitignored .env file for sensitive credentials.
+
+### Running with Docker Compose
+
+Start both the backend and frontend:
+
+```bash
+docker-compose up
+```
+
+Or run in detached mode:
+
+```bash
+docker-compose up -d
+```
+
+The services will be available at:
+- Backend API: http://localhost:5000
+- Frontend: http://localhost:3000
+
+### Rebuilding the Images
+
+If you make changes to the code, rebuild the images:
+
+```bash
+docker-compose up --build
+```
+
+### Stopping the Services
+
+```bash
+docker-compose down
+```
