@@ -1,0 +1,103 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ghcr.io/${{ github.repository }}/backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository }}/frontend
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+      tags: ${{ steps.set-version.outputs.tags }}
+      latest_tag: ${{ steps.set-version.outputs.latest_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract version info
+        id: set-version
+        run: |
+          VERSION=""
+          TAGS=""
+          LATEST_TAG=""
+
+          # Check if current commit has a semver tag
+          GIT_TAG=$(git describe --tags --exact-match 2>/dev/null || true)
+          if [[ "$GIT_TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            VERSION="${GIT_TAG#v}"
+            MAJOR_MINOR="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+            MAJOR="${BASH_REMATCH[1]}"
+            TAGS="$VERSION $MAJOR_MINOR $MAJOR"
+          fi
+
+          # Always add commit SHA tag
+          COMMIT_SHA=${{ github.sha }}
+          TAGS="$TAGS $COMMIT_SHA"
+
+          # Add latest tag only on main branch push (not PRs)
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            LATEST_TAG="latest"
+            TAGS="$TAGS $LATEST_TAG"
+          fi
+
+          # Prepare backend tags
+          BACKEND_TAGS=""
+          for tag in $TAGS; do
+            BACKEND_TAGS+="${{ env.IMAGE_BACKEND }}:${tag}"$'\n'
+          done
+
+          # Prepare frontend tags
+          FRONTEND_TAGS=""
+          for tag in $TAGS; do
+            FRONTEND_TAGS+="${{ env.IMAGE_FRONTEND }}:${tag}"$'\n'
+          done
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "backend_tags<<EOF" >> $GITHUB_OUTPUT
+          echo "$BACKEND_TAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "frontend_tags<<EOF" >> $GITHUB_OUTPUT
+          echo "$FRONTEND_TAGS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.set-version.outputs.backend_tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.set-version.outputs.version }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.set-version.outputs.frontend_tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repositoryUrl }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ steps.set-version.outputs.version }}
