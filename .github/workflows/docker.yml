@@ -43,8 +43,8 @@ jobs:
             TAGS="$VERSION $MAJOR_MINOR $MAJOR"
           else
             # No semver tag, fallback to frontend package.json version
-            if [ -f block-size-vibe/frontend/package.json ]; then
-              PKG_VERSION=$(jq -r .version block-size-vibe/frontend/package.json)
+            if [ -f ./frontend/package.json ]; then
+              PKG_VERSION=$(jq -r .version ./frontend/package.json)
               VERSION="$PKG_VERSION"
               MAJOR_MINOR=$(echo "$PKG_VERSION" | cut -d. -f1,2)
               MAJOR=$(echo "$PKG_VERSION" | cut -d. -f1)
@@ -92,7 +92,7 @@ jobs:
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
-          context: ./block-size-vibe/backend
+          context: ./backend
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.set-version.outputs.backend_tags }}
           labels: |
@@ -103,7 +103,7 @@ jobs:
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
         with:
-          context: ./block-size-vibe/frontend
+          context: ./frontend
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.set-version.outputs.frontend_tags }}
           labels: |
